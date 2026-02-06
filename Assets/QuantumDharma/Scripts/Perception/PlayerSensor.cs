@@ -19,8 +19,7 @@ public class PlayerSensor : UdonSharpBehaviour
 
     [Header("References")]
     [SerializeField] private MarkovBlanket _markovBlanket;
-    // Wire to FreeEnergyCalculator once Core layer exists
-    // [SerializeField] private UdonSharpBehaviour _freeEnergyCalculator;
+    [SerializeField] private QuantumDharmaManager _manager;
 
     // --- Observed player arrays (fixed-size, max 80 VRChat instance cap) ---
     private const int MAX_PLAYERS = 80;
@@ -169,20 +168,16 @@ public class PlayerSensor : UdonSharpBehaviour
     // ----------------------------------------------------------------
 
     /// <summary>
-    /// Push current observation batch to the free energy engine.
-    /// Stub: will call into FreeEnergyCalculator.ReceiveObservations() once
-    /// the Core layer is implemented.
+    /// Notify the manager that observations have been updated.
+    /// The manager reads from this sensor's public API on its own tick,
+    /// but this event allows immediate reaction if desired.
     /// </summary>
     private void PushObservations()
     {
-        // TODO: Wire to FreeEnergyCalculator when Core layer exists.
-        // Example call shape:
-        // _freeEnergyCalculator.SetProgramVariable("observedPositions", GetTrackedPositions());
-        // _freeEnergyCalculator.SetProgramVariable("observedVelocities", GetTrackedVelocities());
-        // _freeEnergyCalculator.SetProgramVariable("observedGazeDirections", GetTrackedGazeDirections());
-        // _freeEnergyCalculator.SetProgramVariable("observedDistances", GetTrackedDistances());
-        // _freeEnergyCalculator.SetProgramVariable("observedPlayerCount", _trackedCount);
-        // _freeEnergyCalculator.SendCustomEvent("OnObservationsUpdated");
+        if (_manager != null)
+        {
+            _manager.SendCustomEvent("OnObservationsUpdated");
+        }
     }
 
     /// <summary>Returns the effective detection radius, respecting the MarkovBlanket if assigned.</summary>
