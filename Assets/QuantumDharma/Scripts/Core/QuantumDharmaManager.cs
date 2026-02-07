@@ -67,6 +67,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private TrustVisualizer _trustVisualizer;
     [SerializeField] private IdleWaypoints _idleWaypoints;
 
+    [Header("Components — Exploration & Gesture (optional)")]
+    [SerializeField] private CuriosityDrive _curiosityDrive;
+    [SerializeField] private GestureController _gestureController;
+
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
     // ================================================================
@@ -368,10 +372,16 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                         }
 
                         // Notify ContextualUtterance: re-encounter or friend return
+                        bool isFriend = _sessionMemory.GetMemoryIsFriend(memSlot);
                         if (_contextualUtterance != null)
                         {
-                            bool isFriend = _sessionMemory.GetMemoryIsFriend(memSlot);
                             _contextualUtterance.NotifyPlayerRegistered(id, true, isFriend);
+                        }
+
+                        // Gesture: wave at returning friend
+                        if (_gestureController != null && isFriend)
+                        {
+                            _gestureController.OnFriendReturned();
                         }
                     }
                     else
@@ -664,6 +674,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         {
             _npc.ForceGiftResponse();
         }
+
+        // Trigger gift bow gesture
+        if (_gestureController != null)
+        {
+            _gestureController.OnGiftReceived();
+        }
     }
 
     // ================================================================
@@ -743,7 +759,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             return;
         }
 
-        if (_freeEnergy < _actionCostThreshold)
+        // Curiosity bias: novel stimuli lower thresholds for engagement
+        float curiosityBias = _curiosityDrive != null ? _curiosityDrive.GetCuriosityBias() : 0f;
+        float effectiveActionCost = _actionCostThreshold - curiosityBias;
+        float effectiveApproachThreshold = _approachThreshold - curiosityBias * 0.5f;
+
+        if (_freeEnergy < effectiveActionCost)
         {
             _npcState = NPC_STATE_SILENCE;
             return;
@@ -763,7 +784,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             int intent = _beliefState.GetDominantIntent(_focusSlot);
 
             // Threat intent + moderate F → Retreat even below threshold
-            if (intent == BeliefState.INTENT_THREAT && _freeEnergy > _approachThreshold)
+            if (intent == BeliefState.INTENT_THREAT && _freeEnergy > effectiveApproachThreshold)
             {
                 _npcState = NPC_STATE_RETREAT;
                 return;
@@ -778,7 +799,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         // Standard thresholds
-        if (_freeEnergy < _approachThreshold && trust >= _approachTrustMin)
+        if (_freeEnergy < effectiveApproachThreshold && trust >= _approachTrustMin)
         {
             _npcState = NPC_STATE_APPROACH;
             return;
@@ -987,5 +1008,15 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public IdleWaypoints GetIdleWaypoints()
     {
         return _idleWaypoints;
+    }
+
+    public CuriosityDrive GetCuriosityDrive()
+    {
+        return _curiosityDrive;
+    }
+
+    public GestureController GetGestureController()
+    {
+        return _gestureController;
     }
 }

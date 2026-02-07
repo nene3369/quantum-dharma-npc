@@ -34,6 +34,8 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── AdaptivePersonality       ← Empty GameObject (optional)
 ├── IdleWaypoints             ← Empty GO + child Transforms (optional)
 ├── TrustVisualizer           ← Empty GameObject (optional)
+├── CuriosityDrive            ← Empty GameObject (optional)
+├── GestureController         ← Empty GameObject (optional, needs Animator ref)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -329,6 +331,58 @@ No special components needed on the root. Position this where you want the NPC t
    - Standard Shader or any shader with these property names works
    - Uses MaterialPropertyBlock (no material instances created — Quest safe)
 
+### 2g-ix. CuriosityDrive (optional)
+
+1. Create an empty child GameObject under the NPC root named `CuriosityDrive`
+2. Add **UdonBehaviour**
+3. Attach script: `CuriosityDrive.cs`
+4. Configure in Inspector:
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **Free Energy Calculator:** (optional) drag the FreeEnergyCalculator GameObject
+   - **First Meet Novelty:** 1.0 (high novelty for never-seen players)
+   - **Reencounter Novelty:** 0.4 (moderate for remembered players)
+   - **Friend Return Novelty:** 0.2 (low for returning friends — already familiar)
+   - **Habituation Rate:** 0.02 (novelty decay per second)
+   - **Novelty Floor:** 0.05 (minimum novelty — never fully habituated)
+   - **Intent Surprise Boost:** 0.3 (novelty spike on intent change)
+   - **Behavior PE Threshold:** 0.8 (PE above which novelty spikes)
+   - **Behavior Surprise Boost:** 0.15 (novelty gain from high behavior PE)
+   - **Curiosity Strength:** 0.5 (how much curiosity biases state selection)
+   - **Update Interval:** 0.5 (seconds between updates)
+5. **FEP interpretation:** Curiosity represents epistemic value — the NPC seeks information that will reduce model uncertainty. Novel stimuli lower the action cost threshold, making the NPC more likely to leave Silence and engage.
+
+### 2g-x. GestureController (optional)
+
+1. Create an empty child GameObject under the NPC root named `GestureController`
+2. Add **UdonBehaviour**
+3. Attach script: `GestureController.cs`
+4. Configure in Inspector:
+   - **Animator:** drag the Animator component on the Model GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **NPC:** (optional) drag the QuantumDharmaNPC GameObject
+   - **Belief State:** (optional) drag the BeliefState GameObject
+   - **Adaptive Personality:** (optional) drag the AdaptivePersonality GameObject
+   - **Animator Triggers:** `GestureWave`, `GestureBow`, `GestureHeadTilt`, `GestureNod`, `GestureBeckon`, `GestureFlinch` (defaults are fine)
+   - **Global Cooldown:** 3 (seconds between any two gestures)
+   - **Per Gesture Cooldown Multiplier:** 2 (multiplied by global cooldown per gesture)
+   - **Idle Gesture Interval:** 8 (seconds between idle gesture checks)
+   - **Idle Gesture Chance:** 0.3 (probability per check)
+   - **Trust Thresholds:** Wave -0.2, Bow 0.3, Beckon 0.4, Nod 0.1
+5. **Animator Controller setup:**
+   - Create trigger parameters: `GestureWave`, `GestureBow`, `GestureHeadTilt`, `GestureNod`, `GestureBeckon`, `GestureFlinch`
+   - Each trigger transitions to a corresponding gesture animation clip
+   - Set transitions to "Has Exit Time" with appropriate clip length
+   - Gestures should blend back to idle on exit
+6. **Gesture types:**
+   - WAVE: greeting on first Observe or idle during Approach
+   - BOW: respect on gift receive or becoming Grateful
+   - HEAD_TILT: curiosity on Observe or becoming Curious
+   - NOD: acknowledgment on friendly intent or idle
+   - BECKON: invitation to approach at high trust
+   - FLINCH: startle on Retreat or becoming Anxious
+
 ### 2h. LookAtController (optional)
 
 1. Create an empty child GameObject under the NPC root named `LookAtController`
@@ -417,6 +471,8 @@ No special components needed on the root. Position this where you want the NPC t
    - **Adaptive Personality:** (optional) drag AdaptivePersonality
    - **Trust Visualizer:** (optional) drag TrustVisualizer
    - **Idle Waypoints:** (optional) drag IdleWaypoints
+   - **Curiosity Drive:** (optional) drag CuriosityDrive
+   - **Gesture Controller:** (optional) drag GestureController
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -470,6 +526,8 @@ No special components needed on the root. Position this where you want the NPC t
    - **Adaptive Personality:** (optional) drag AdaptivePersonality
    - **Trust Visualizer:** (optional) drag TrustVisualizer
    - **Idle Waypoints:** (optional) drag IdleWaypoints
+   - **Curiosity Drive:** (optional) drag CuriosityDrive
+   - **Gesture Controller:** (optional) drag GestureController
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -574,6 +632,19 @@ TrustVisualizer
   ├─→ BeliefState              (optional: reads per-player friend status)
   └─→ QuantumDharmaManager     (optional: reads focus slot)
 
+CuriosityDrive
+  ├─→ QuantumDharmaManager     (reads focus player + focus slot)
+  ├─→ BeliefState              (reads posteriors + dominant intent for novelty tracking)
+  ├─→ SessionMemory            (reads remembered/friend status for initial novelty)
+  └─→ FreeEnergyCalculator     (optional: reads behavior PE for surprise spikes)
+
+GestureController
+  ├─→ Animator                 (fires trigger parameters for gesture animations)
+  ├─→ QuantumDharmaManager     (reads NPC state + focus slot)
+  ├─→ QuantumDharmaNPC         (reads current emotion for gesture selection)
+  ├─→ BeliefState              (reads per-player trust for gesture gating)
+  └─→ AdaptivePersonality      (optional: reads expressiveness for gesture frequency)
+
 QuantumDharmaManager
   ├─→ PlayerSensor             (reads player observations + hand/crouch)
   ├─→ MarkovBlanket            (reads trust, sends trust adjustments)
@@ -591,7 +662,9 @@ QuantumDharmaManager
   ├─→ DreamNarrative           (optional: notifies on dream wake)
   ├─→ AdaptivePersonality      (optional: referenced for wiring)
   ├─→ TrustVisualizer          (optional: referenced for wiring)
-  └─→ IdleWaypoints            (optional: patrols during Silence with no players)
+  ├─→ IdleWaypoints            (optional: patrols during Silence with no players)
+  ├─→ CuriosityDrive           (optional: reads curiosity bias for state selection)
+  └─→ GestureController        (optional: triggers gestures on gift/friend events)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -615,7 +688,9 @@ DebugOverlay
   ├─→ DreamNarrative           (optional: reads dream tone + narrative text)
   ├─→ AdaptivePersonality      (optional: reads personality axes)
   ├─→ TrustVisualizer          (optional: reads emission intensity)
-  └─→ IdleWaypoints            (optional: reads patrol state + waypoint index)
+  ├─→ IdleWaypoints            (optional: reads patrol state + waypoint index)
+  ├─→ CuriosityDrive           (optional: reads curiosity + novelty values)
+  └─→ GestureController        (optional: reads last gesture + cooldown)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -697,6 +772,26 @@ FreeEnergyVisualizer
 - [ ] After threat encounters — verify "Personality C:" increases
 - [ ] After long peaceful existence — verify "Personality E:" increases
 - [ ] Verify personality changes are very slow (hours of interaction, not minutes)
+- [ ] First player in range — verify "Curiosity:" shows high novelty (~1.0 for new player)
+- [ ] Stay near NPC — verify curiosity decays gradually (habituation)
+- [ ] Return as remembered player — verify lower initial novelty (0.4)
+- [ ] Return as friend — verify lowest initial novelty (0.2)
+- [ ] Change behavior suddenly — verify novelty spikes (intent surprise boost)
+- [ ] At high curiosity — verify NPC exits Silence more readily (lower action cost)
+- [ ] Check "Curiosity:" line in DebugOverlay showing aggregate, focus, bias, tracked count
+- [ ] Silence → Observe transition — verify NPC waves at player (if trust > -0.2)
+- [ ] Entering Retreat — verify NPC flinches
+- [ ] Observe → Approach at high trust — verify NPC beckons
+- [ ] Emotion becomes Curious — verify head tilt gesture
+- [ ] Emotion becomes Grateful — verify bow gesture
+- [ ] Emotion becomes Warm — verify nod gesture
+- [ ] Emotion becomes Anxious (not in Retreat) — verify flinch gesture
+- [ ] During Observe/Approach — verify periodic idle gestures (head tilt, nod, wave, beckon)
+- [ ] On gift receive — verify forced bow gesture (bypasses cooldown)
+- [ ] Remembered friend returns — verify wave gesture
+- [ ] High expressiveness — verify more frequent idle gestures
+- [ ] Low expressiveness — verify less frequent idle gestures
+- [ ] Check "Gesture:" line in DebugOverlay showing last gesture name + [CD] cooldown indicator
 
 ---
 
@@ -715,3 +810,5 @@ FreeEnergyVisualizer
 - IdleWaypoints: minimal performance (only active during Silence with no players)
 - AdaptivePersonality: updates every 30s — negligible performance impact
 - DreamNarrative: only active during wake transition — no ongoing cost
+- CuriosityDrive: updates every 0.5s — lightweight (loops over 16 slots with simple math)
+- GestureController: runs per frame but only does cooldown decrements (6 floats) + state checks; no heavy computation

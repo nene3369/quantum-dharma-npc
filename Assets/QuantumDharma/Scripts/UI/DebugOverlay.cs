@@ -54,6 +54,8 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private AdaptivePersonality _adaptivePersonality;
     [SerializeField] private TrustVisualizer _trustVisualizer;
     [SerializeField] private IdleWaypoints _idleWaypoints;
+    [SerializeField] private CuriosityDrive _curiosityDrive;
+    [SerializeField] private GestureController _gestureController;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -520,6 +522,25 @@ public class DebugOverlay : UdonSharpBehaviour
                 details += "\nPersonality S:" + _adaptivePersonality.GetSociability().ToString("F2") +
                     " C:" + _adaptivePersonality.GetCautiousness().ToString("F2") +
                     " E:" + _adaptivePersonality.GetExpressiveness().ToString("F2");
+            }
+
+            // Curiosity drive line
+            if (_curiosityDrive != null)
+            {
+                details += "\nCuriosity:" + _curiosityDrive.GetAggregateCuriosity().ToString("F2") +
+                    " focus:" + _curiosityDrive.GetFocusCuriosity().ToString("F2") +
+                    " bias:" + _curiosityDrive.GetCuriosityBias().ToString("F2") +
+                    " tracked:" + _curiosityDrive.GetTrackedSlotCount().ToString();
+            }
+
+            // Gesture controller line
+            if (_gestureController != null)
+            {
+                details += "\nGesture:" + _gestureController.GetLastGestureName();
+                if (_gestureController.IsInCooldown())
+                {
+                    details += " [CD]";
+                }
             }
 
             _detailsLabel.text = details;
