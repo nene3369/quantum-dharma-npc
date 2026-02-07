@@ -395,8 +395,8 @@ No special components needed on the root. Position this where you want the NPC t
    - **Eye Height Offset:** 1.5 (height of NPC eyes above pivot)
    - **Weight Transition Time:** 0.4 (seconds to ease gaze in/out)
 5. **Important — Animator setup:**
-   - The NPC's Animator Controller must have **IK Pass** enabled on the relevant layer
-   - Requires a humanoid rig or Animator with IK support
+   - Requires a **humanoid rig** (the script uses `GetBoneTransform(HumanBodyBones.Head/LeftEye/RightEye)`)
+   - Gaze is applied via `LateUpdate` bone rotation (not IK Pass — UdonSharp has no `OnAnimatorIK`)
    - Set `Blink` parameter name to match your blend shape or animation parameter
 
 ### 2h-i. EmotionAnimator (optional)
@@ -566,7 +566,7 @@ PostureDetector
   └─→ PlayerSensor             (reads tracked players)
 
 LookAtController
-  ├─→ Animator                 (drives IK look-at)
+  ├─→ Animator                 (LateUpdate bone rotation for gaze — no IK Pass needed)
   ├─→ QuantumDharmaManager     (reads NPC state + focus player)
   └─→ QuantumDharmaNPC         (optional: reads emotion)
 
