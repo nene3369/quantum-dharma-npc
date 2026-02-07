@@ -356,7 +356,8 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         }
         else
         {
-            _peakFreeEnergy = Mathf.Max(0f, _peakFreeEnergy - _peakDecayRate * Time.deltaTime);
+            // Use tick interval (called from Manager's decision tick, not per-frame)
+            _peakFreeEnergy = Mathf.Max(0f, _peakFreeEnergy - _peakDecayRate * 0.5f);
         }
     }
 

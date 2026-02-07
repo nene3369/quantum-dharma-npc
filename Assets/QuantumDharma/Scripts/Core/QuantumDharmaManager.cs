@@ -302,7 +302,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         for (int i = 0; i < count; i++)
         {
             VRCPlayerApi p = _playerSensor.GetTrackedPlayer(i);
-            __currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
+            _currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
         }
 
         // Unregister players that left — save to SessionMemory first

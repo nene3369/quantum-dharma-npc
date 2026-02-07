@@ -118,6 +118,7 @@ public class LookAtController : UdonSharpBehaviour
     private float _glanceNextTime;
     private float _glanceRemaining; // > 0 means currently glancing back
     private bool _isGlancingBack;
+    private Vector3 _retreatDriftOffset; // stable random offset for retreat gaze
 
     // Saccade
     private Vector3 _saccadeOffset;
@@ -147,6 +148,7 @@ public class LookAtController : UdonSharpBehaviour
         _glanceNextTime = Random.Range(_glanceMinInterval, _glanceMaxInterval);
         _glanceRemaining = 0f;
         _isGlancingBack = false;
+        _retreatDriftOffset = Vector3.zero;
 
         // Saccade
         _saccadeOffset = Vector3.zero;
@@ -341,18 +343,19 @@ public class LookAtController : UdonSharpBehaviour
                 _isGlancingBack = false;
                 _glanceTimer = 0f;
                 _glanceNextTime = Random.Range(_glanceMinInterval, _glanceMaxInterval);
+                // Pick new stable random offset for next away-gaze direction
+                _retreatDriftOffset = new Vector3(
+                    Random.Range(-0.5f, 0.5f),
+                    Random.Range(-0.3f, 0.3f),
+                    0f
+                );
             }
         }
         else
         {
-            // Look away
+            // Look away with stable random offset (picked once per glance cycle)
             Vector3 awayTarget = GetEyePosition() + awayDir * _idleDriftDistance;
-            // Add slight random offset to avoid robotic look-away
-            awayTarget += new Vector3(
-                Random.Range(-0.5f, 0.5f),
-                Random.Range(-0.3f, 0.3f),
-                0f
-            );
+            awayTarget += _retreatDriftOffset;
             _desiredLookTarget = awayTarget;
             _targetWeight = 0.5f;
             _isGlancingBack = false;

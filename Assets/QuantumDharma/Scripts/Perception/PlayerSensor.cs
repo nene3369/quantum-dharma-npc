@@ -47,6 +47,7 @@ public class PlayerSensor : UdonSharpBehaviour
 
     // Saved data from previous scan (for exit detection and velocity)
     private int[] _prevPlayerIds;
+    private Vector3[] _savedPrevPositions; // safe copy of _prevPositions before overwrite
     private int _prevTrackedCount;
 
     private float _pollTimer;
@@ -61,6 +62,7 @@ public class PlayerSensor : UdonSharpBehaviour
         _playerDistances = new float[MAX_PLAYERS];
         _prevPositions = new Vector3[MAX_PLAYERS];
         _prevPlayerIds = new int[MAX_PLAYERS];
+        _savedPrevPositions = new Vector3[MAX_PLAYERS];
         _prevTrackedCount = 0;
         _trackedCount = 0;
         _pollTimer = 0f;
@@ -91,6 +93,7 @@ public class PlayerSensor : UdonSharpBehaviour
         {
             VRCPlayerApi tp = _trackedPlayers[i];
             _prevPlayerIds[i] = (tp != null && tp.IsValid()) ? tp.playerId : -1;
+            _savedPrevPositions[i] = _prevPositions[i];
         }
 
         // Fetch all players using pre-allocated buffer
@@ -178,7 +181,7 @@ public class PlayerSensor : UdonSharpBehaviour
         {
             if (_prevPlayerIds[i] == playerId)
             {
-                return _prevPositions[i];
+                return _savedPrevPositions[i];
             }
         }
         return fallback;
