@@ -9,10 +9,12 @@ using VRC.Udon;
 ///
 /// Shows real-time NPC telemetry:
 ///   - Current behavioral state (color-coded)
-///   - Free energy value (F)
-///   - Trust level
+///   - Free energy value (F) with trend indicator
+///   - Trust level and kindness score
 ///   - Markov blanket radius
 ///   - Prediction error breakdown
+///   - Belief state: dominant intent with posteriors
+///   - Emotion and utterance from personality layer
 ///   - Tracked player count
 ///
 /// Toggled on/off via player interaction (VRChat Interact event).
@@ -23,18 +25,20 @@ using VRC.Udon;
 ///   Yellow = Observe  (gathering information)
 ///   Blue   = Approach (active inference)
 ///   Red    = Retreat  (high surprise)
-///
-/// Designed to be lightweight for Quest — uses Unity UI Text, no dynamic
-/// mesh generation. Place on a world-space Canvas as a child of the NPC.
 /// </summary>
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class DebugOverlay : UdonSharpBehaviour
 {
-    [Header("References")]
+    [Header("References — Required")]
     [SerializeField] private QuantumDharmaManager _manager;
     [SerializeField] private MarkovBlanket _markovBlanket;
     [SerializeField] private PlayerSensor _playerSensor;
     [SerializeField] private NPCMotor _npcMotor;
+
+    [Header("References — Enhanced (optional)")]
+    [SerializeField] private FreeEnergyCalculator _freeEnergyCalculator;
+    [SerializeField] private BeliefState _beliefState;
+    [SerializeField] private QuantumDharmaNPC _npc;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -46,13 +50,8 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private Image _stateBackground;
 
     [Header("Settings")]
-    [Tooltip("Height offset above NPC pivot for the overlay")]
     [SerializeField] private float _heightOffset = 2.2f;
-
-    [Tooltip("Update interval in seconds (keep > 0.1 for Quest)")]
     [SerializeField] private float _updateInterval = 0.2f;
-
-    [Tooltip("Start visible or hidden")]
     [SerializeField] private bool _startVisible = false;
 
     [Header("State Colors")]
@@ -78,7 +77,6 @@ public class DebugOverlay : UdonSharpBehaviour
     {
         if (!_isVisible) return;
 
-        // Billboard toward local player
         BillboardToLocalPlayer();
 
         _updateTimer += Time.deltaTime;
@@ -101,7 +99,6 @@ public class DebugOverlay : UdonSharpBehaviour
         }
     }
 
-    /// <summary>Programmatic show/hide.</summary>
     public void SetVisible(bool visible)
     {
         _isVisible = visible;
@@ -122,7 +119,7 @@ public class DebugOverlay : UdonSharpBehaviour
 
         Vector3 playerHead = localPlayer.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
         Vector3 toPlayer = playerHead - transform.position;
-        toPlayer.y = 0f; // keep upright
+        toPlayer.y = 0f;
 
         if (toPlayer.sqrMagnitude > 0.001f)
         {
@@ -142,10 +139,17 @@ public class DebugOverlay : UdonSharpBehaviour
         float freeEnergy = _manager.GetFreeEnergy();
         string stateName = _manager.GetNPCStateName();
 
-        // State label
+        // State label — include emotion if personality layer available
         if (_stateLabel != null)
         {
-            _stateLabel.text = stateName;
+            if (_npc != null)
+            {
+                _stateLabel.text = stateName + " | " + _npc.GetEmotionName();
+            }
+            else
+            {
+                _stateLabel.text = stateName;
+            }
         }
 
         // State background color
@@ -154,36 +158,61 @@ public class DebugOverlay : UdonSharpBehaviour
             _stateBackground.color = GetStateColor(state);
         }
 
-        // Free energy
+        // Free energy with trend indicator
         if (_freeEnergyLabel != null)
         {
-            _freeEnergyLabel.text = FormatFloat("F", freeEnergy);
+            string feStr = "F: " + freeEnergy.ToString("F2");
+            if (_freeEnergyCalculator != null)
+            {
+                float trend = _freeEnergyCalculator.GetTrend();
+                if (trend > 0.1f) feStr += " ^";
+                else if (trend < -0.1f) feStr += " v";
+                else feStr += " =";
+
+                feStr += "  Peak: " + _freeEnergyCalculator.GetPeakFreeEnergy().ToString("F1");
+            }
+            _freeEnergyLabel.text = feStr;
         }
 
-        // Trust
+        // Trust — show per-player trust and kindness if BeliefState available
         if (_trustLabel != null)
         {
             float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
-            _trustLabel.text = FormatFloat("Trust", trust);
+            string trustStr = "Trust: " + trust.ToString("F2");
+
+            if (_beliefState != null)
+            {
+                int focusSlot = _manager.GetFocusSlot();
+                if (focusSlot >= 0)
+                {
+                    float slotTrust = _beliefState.GetSlotTrust(focusSlot);
+                    float kindness = _beliefState.GetSlotKindness(focusSlot);
+                    bool isFriend = _beliefState.IsFriend(focusSlot);
+                    trustStr += "  P:" + slotTrust.ToString("F2");
+                    trustStr += "  K:" + kindness.ToString("F1");
+                    if (isFriend) trustStr += " [Friend]";
+                }
+            }
+            _trustLabel.text = trustStr;
         }
 
         // Blanket radius
         if (_radiusLabel != null)
         {
             float radius = _markovBlanket != null ? _markovBlanket.GetCurrentRadius() : 0f;
-            _radiusLabel.text = FormatFloat("Radius", radius);
+            _radiusLabel.text = "Radius: " + radius.ToString("F1") + "m";
         }
 
-        // Details: PE breakdown + player info
+        // Details: PE breakdown + belief state + motor info
         if (_detailsLabel != null)
         {
             float peD = _manager.GetPredictionErrorDistance();
             float peV = _manager.GetPredictionErrorVelocity();
             float peG = _manager.GetPredictionErrorGaze();
-
             int playerCount = _playerSensor != null ? _playerSensor.GetTrackedPlayerCount() : 0;
             float focusDist = _manager.GetFocusDistance();
 
+            // Motor state label
             string motorLabel = "Idle";
             if (_npcMotor != null)
             {
@@ -193,14 +222,59 @@ public class DebugOverlay : UdonSharpBehaviour
                 else if (motorState == 3) motorLabel = "Face";
             }
 
-            // Build detail string (avoid string.Format — use concatenation for Udon safety)
-            _detailsLabel.text =
+            string details =
                 "PE d:" + peD.ToString("F2") +
                 " v:" + peV.ToString("F2") +
-                " g:" + peG.ToString("F2") +
-                "\nPlayers: " + playerCount.ToString() +
+                " g:" + peG.ToString("F2");
+
+            // Add angle and behavior PE if calculator available
+            if (_freeEnergyCalculator != null)
+            {
+                int focusSlot = _manager.GetFocusSlot();
+                if (focusSlot >= 0)
+                {
+                    float peA = _freeEnergyCalculator.GetSlotPE(focusSlot, FreeEnergyCalculator.CH_ANGLE);
+                    float peB = _freeEnergyCalculator.GetSlotPE(focusSlot, FreeEnergyCalculator.CH_BEHAVIOR);
+                    details += " a:" + peA.ToString("F2") + " b:" + peB.ToString("F2");
+                }
+            }
+
+            details += "\nPlayers: " + playerCount.ToString() +
                 "  Dist: " + (focusDist < 999f ? focusDist.ToString("F1") + "m" : "--") +
-                "\nMotor: " + motorLabel;
+                "  Motor: " + motorLabel;
+
+            // Belief state line
+            if (_beliefState != null)
+            {
+                int focusSlot = _manager.GetFocusSlot();
+                if (focusSlot >= 0)
+                {
+                    int dominant = _beliefState.GetDominantIntent(focusSlot);
+                    string intentName = _beliefState.GetIntentName(dominant);
+                    float pA = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_APPROACH);
+                    float pN = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_NEUTRAL);
+                    float pT = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_THREAT);
+                    float pF = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_FRIENDLY);
+
+                    details += "\nBelief: " + intentName +
+                        " [A:" + pA.ToString("F2") +
+                        " N:" + pN.ToString("F2") +
+                        " T:" + pT.ToString("F2") +
+                        " F:" + pF.ToString("F2") + "]";
+                }
+            }
+
+            // Utterance line
+            if (_npc != null)
+            {
+                string utt = _npc.GetCurrentUtterance();
+                if (utt.Length > 0)
+                {
+                    details += "\n\"" + utt + "\"";
+                }
+            }
+
+            _detailsLabel.text = details;
         }
     }
 
@@ -218,10 +292,5 @@ public class DebugOverlay : UdonSharpBehaviour
             case QuantumDharmaManager.NPC_STATE_RETREAT:   return _colorRetreat;
             default: return Color.gray;
         }
-    }
-
-    private string FormatFloat(string label, float value)
-    {
-        return label + ": " + value.ToString("F2");
     }
 }
