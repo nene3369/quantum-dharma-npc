@@ -147,7 +147,7 @@ public class VoiceDetector : UdonSharpBehaviour
             Vector3 toNpc = (npcPos - playerPos).normalized;
             float gazeDot = Vector3.Dot(gaze, toNpc);
             float gazeFactor = Mathf.Clamp01(
-                (gazeDot - _gazeThreshold) / (1f - _gazeThreshold)
+                (gazeDot - _gazeThreshold) / Mathf.Max(1f - _gazeThreshold, 0.01f)
             );
 
             // Stillness factor: lower speed = higher engagement

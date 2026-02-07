@@ -193,7 +193,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
 
         // Sync
         _syncedEmotion = _currentEmotion;
-        RequestSerialization();
+        // Continuous sync mode — no RequestSerialization needed
 
         _previousNPCState = npcState;
     }
@@ -319,7 +319,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         _utteranceDisplayTimer = _utteranceDuration;
 
         _syncedUtteranceIndex = index;
-        RequestSerialization();
+        // Continuous sync mode — no RequestSerialization needed
     }
 
     private void UpdateUtteranceDisplay()
@@ -338,7 +338,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
                 _syncedUtteranceIndex = -1;
                 if (Networking.IsOwner(gameObject))
                 {
-                    RequestSerialization();
+                    // Continuous sync mode — no RequestSerialization needed
                 }
             }
         }
@@ -558,7 +558,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
 
         // Sync emotion
         _syncedEmotion = _currentEmotion;
-        RequestSerialization();
+        // Continuous sync mode — no RequestSerialization needed
     }
 
     // ================================================================
@@ -586,7 +586,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         // Sync: use index -2 to signal "external text" to remote clients
         // Remote clients won't decode this, but the text will clear on timer
         _syncedUtteranceIndex = -2;
-        RequestSerialization();
+        // Continuous sync mode — no RequestSerialization needed
     }
 
     // ================================================================

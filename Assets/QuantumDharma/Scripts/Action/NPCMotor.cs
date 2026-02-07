@@ -284,6 +284,8 @@ public class NPCMotor : UdonSharpBehaviour
     /// <summary>Stop all movement. Return to ground state (stillness).</summary>
     public void Stop()
     {
+        if (!Networking.IsOwner(gameObject)) return;
+
         _motorState = STATE_IDLE;
         _targetPlayer = null;
     }

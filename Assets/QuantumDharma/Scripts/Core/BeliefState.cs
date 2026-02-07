@@ -124,6 +124,10 @@ public class BeliefState : UdonSharpBehaviour
     // Prior array (for convenience)
     private float[] _prior;
 
+    // Pre-allocated scratch buffers (avoid GC per tick)
+    private float[] _scratchFeatures;
+    private float[] _scratchPosterior;
+
     private void Start()
     {
         _slotPlayerIds = new int[MAX_SLOTS];
@@ -149,6 +153,10 @@ public class BeliefState : UdonSharpBehaviour
         _prior[INTENT_THREAT]   = _priorThreat;
         _prior[INTENT_FRIENDLY] = _priorFriendly;
         NormalizeDist(_prior, INTENT_COUNT);
+
+        // Pre-allocate scratch buffers
+        _scratchFeatures = new float[FEAT_COUNT];
+        _scratchPosterior = new float[INTENT_COUNT];
 
         // Initialize likelihood model
         // Each row: [distance_μ, approachSpeed_μ, gaze_μ, behaviorPE_μ]
@@ -299,6 +307,13 @@ public class BeliefState : UdonSharpBehaviour
                 _slotActive[i] = false;
                 _slotPlayerIds[i] = -1;
                 _activeSlotCount--;
+                // Zero posteriors to prevent CuriosityDrive ghost detection
+                for (int j = 0; j < INTENT_COUNT; j++)
+                {
+                    _posteriors[i * INTENT_COUNT + j] = 0f;
+                }
+                _slotTrust[i] = 0f;
+                _slotKindness[i] = 0f;
                 return;
             }
         }
@@ -369,19 +384,17 @@ public class BeliefState : UdonSharpBehaviour
         if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
 
         int baseIdx = slot * INTENT_COUNT;
-        float[] features = new float[FEAT_COUNT];
-        features[FEAT_DISTANCE] = distance;
-        features[FEAT_APPROACH_SPEED] = approachSpeed;
-        features[FEAT_GAZE] = gazeDot;
-        features[FEAT_BEHAVIOR_PE] = behaviorPE;
-        features[FEAT_HAND_PROXIMITY] = handProximitySignal;
-        features[FEAT_CROUCH] = crouchSignal;
-        features[FEAT_TOUCH] = touchSignal;
-        features[FEAT_GIFT] = giftSignal;
-        features[FEAT_VOICE] = voiceSignal;
+        _scratchFeatures[FEAT_DISTANCE] = distance;
+        _scratchFeatures[FEAT_APPROACH_SPEED] = approachSpeed;
+        _scratchFeatures[FEAT_GAZE] = gazeDot;
+        _scratchFeatures[FEAT_BEHAVIOR_PE] = behaviorPE;
+        _scratchFeatures[FEAT_HAND_PROXIMITY] = handProximitySignal;
+        _scratchFeatures[FEAT_CROUCH] = crouchSignal;
+        _scratchFeatures[FEAT_TOUCH] = touchSignal;
+        _scratchFeatures[FEAT_GIFT] = giftSignal;
+        _scratchFeatures[FEAT_VOICE] = voiceSignal;
 
         // Compute unnormalized posterior for each intent
-        float[] newPosterior = new float[INTENT_COUNT];
         for (int intent = 0; intent < INTENT_COUNT; intent++)
         {
             // Likelihood = product of Gaussian likelihoods across features
@@ -391,7 +404,7 @@ public class BeliefState : UdonSharpBehaviour
                 int paramIdx = intent * FEAT_COUNT + f;
                 float mu = _likelihoodMu[paramIdx];
                 float sigma = _likelihoodSigma[paramIdx];
-                float x = features[f];
+                float x = _scratchFeatures[f];
 
                 // log Gaussian: -(x - μ)² / (2σ²)
                 float diff = x - mu;
@@ -403,18 +416,18 @@ public class BeliefState : UdonSharpBehaviour
             // Posterior ∝ exp(logLikelihood) × prior
             // Use log domain: log(posterior) = logLikelihood + log(prior)
             float logPrior = Mathf.Log(Mathf.Max(priorVal, 0.0001f));
-            newPosterior[intent] = Mathf.Exp(logLikelihood + logPrior);
+            _scratchPosterior[intent] = Mathf.Exp(logLikelihood + logPrior);
         }
 
         // Normalize
-        NormalizeDist(newPosterior, INTENT_COUNT);
+        NormalizeDist(_scratchPosterior, INTENT_COUNT);
 
         // Smooth: blend between old posterior and new posterior
         for (int intent = 0; intent < INTENT_COUNT; intent++)
         {
             _posteriors[baseIdx + intent] = Mathf.Lerp(
                 _posteriors[baseIdx + intent],
-                newPosterior[intent],
+                _scratchPosterior[intent],
                 _posteriorSmoothing
             );
         }
@@ -459,7 +472,8 @@ public class BeliefState : UdonSharpBehaviour
         // Kindness integration: accumulate when friendly posterior exceeds threshold
         if (friendlyP > _kindnessThreshold)
         {
-            _slotKindness[slot] += friendlyP * _kindnessRate * Time.deltaTime;
+            // Use fixed decision interval (called from Manager's 0.5s tick, not per-frame)
+            _slotKindness[slot] += friendlyP * _kindnessRate * 0.5f;
         }
     }
 

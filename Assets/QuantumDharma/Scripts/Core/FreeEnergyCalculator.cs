@@ -272,7 +272,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         {
             mean += _velocityHistory[histBase + i];
         }
-        mean /= _behaviorWindowSize;
+        mean /= Mathf.Max(_behaviorWindowSize, 1);
 
         float variance = 0f;
         for (int i = 0; i < _behaviorWindowSize; i++)
@@ -280,7 +280,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
             float diff = _velocityHistory[histBase + i] - mean;
             variance += diff * diff;
         }
-        variance /= _behaviorWindowSize;
+        variance /= Mathf.Max(_behaviorWindowSize, 1);
 
         // Normalize: sqrt(variance) as PE (standard deviation of speed)
         _pe[baseIdx + CH_BEHAVIOR] = Mathf.Sqrt(variance);

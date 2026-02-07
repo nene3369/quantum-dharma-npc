@@ -157,7 +157,6 @@ public class TouchSensor : UdonSharpBehaviour
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (player == null || !player.IsValid()) return;
-        if (player.isLocal) return; // NPC doesn't sense itself
 
         int playerId = player.playerId;
 

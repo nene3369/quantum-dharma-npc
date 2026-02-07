@@ -80,6 +80,7 @@ public class ContextualUtterance : UdonSharpBehaviour
     private int _pendingPlayerId;
     private float _cooldownTimer;
     private float _presenceCheckTimer;
+    private float _coPresenceTimer;  // cumulative co-presence duration
     private bool _longPresenceTriggered;
     private int _lastSituation;
 
@@ -89,6 +90,7 @@ public class ContextualUtterance : UdonSharpBehaviour
         _pendingPlayerId = -1;
         _cooldownTimer = 0f;
         _presenceCheckTimer = 0f;
+        _coPresenceTimer = 0f;
         _longPresenceTriggered = false;
         _lastSituation = SIT_NONE;
 
@@ -242,6 +244,7 @@ public class ContextualUtterance : UdonSharpBehaviour
 
         // Reset long presence tracking for new encounters
         _longPresenceTriggered = false;
+        _coPresenceTimer = 0f;
     }
 
     /// <summary>
@@ -303,16 +306,12 @@ public class ContextualUtterance : UdonSharpBehaviour
             }
         }
 
-        // Check current session co-presence via focus distance stability
-        // We approximate by checking if the focus player has been present
-        // for longPresenceThreshold by using Manager's interaction time tracking
-        // For simplicity: check if focus distance is valid (player present) continuously
+        // Track cumulative co-presence time with the focus player
         float focusDist = _manager.GetFocusDistance();
         if (focusDist < 900f) // player is present
         {
-            // The Manager tracks per-player interaction time internally
-            // We use a simple timer approach here
-            if (_presenceCheckTimer >= _longPresenceThreshold)
+            _coPresenceTimer += _presenceCheckInterval;
+            if (_coPresenceTimer >= _longPresenceThreshold)
             {
                 _longPresenceTriggered = true;
                 if (SIT_LONG_PRESENCE > _pendingSituation)
@@ -321,6 +320,11 @@ public class ContextualUtterance : UdonSharpBehaviour
                     _pendingPlayerId = focusPlayer.playerId;
                 }
             }
+        }
+        else
+        {
+            // Player not present — reset co-presence timer
+            _coPresenceTimer = 0f;
         }
     }
 

@@ -274,29 +274,30 @@ public class DebugOverlay : UdonSharpBehaviour
                 "  Dist: " + (focusDist < 999f ? focusDist.ToString("F1") + "m" : "--") +
                 "  Motor: " + motorLabel;
 
+            // Find focus player index in sensor (used by hand/posture/voice)
+            int focusSensorIdx = -1;
+            if (_playerSensor != null && _manager != null)
+            {
+                VRCPlayerApi focusP = _manager.GetFocusPlayer();
+                if (focusP != null && focusP.IsValid())
+                {
+                    int cnt = _playerSensor.GetTrackedPlayerCount();
+                    for (int i = 0; i < cnt; i++)
+                    {
+                        VRCPlayerApi tp = _playerSensor.GetTrackedPlayer(i);
+                        if (tp != null && tp.playerId == focusP.playerId)
+                        {
+                            focusSensorIdx = i;
+                            break;
+                        }
+                    }
+                }
+            }
+
             // Hand proximity + crouch line
             if (_handProximityDetector != null || _postureDetector != null)
             {
                 string bodyLine = "\n";
-                // Find focus player index in sensor
-                int focusSensorIdx = -1;
-                if (_playerSensor != null && _manager != null)
-                {
-                    VRCPlayerApi focusP = _manager.GetFocusPlayer();
-                    if (focusP != null && focusP.IsValid())
-                    {
-                        int cnt = _playerSensor.GetTrackedPlayerCount();
-                        for (int i = 0; i < cnt; i++)
-                        {
-                            VRCPlayerApi tp = _playerSensor.GetTrackedPlayer(i);
-                            if (tp != null && tp.playerId == focusP.playerId)
-                            {
-                                focusSensorIdx = i;
-                                break;
-                            }
-                        }
-                    }
-                }
 
                 if (focusSensorIdx >= 0)
                 {
