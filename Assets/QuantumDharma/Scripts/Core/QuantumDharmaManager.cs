@@ -42,6 +42,11 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private FreeEnergyCalculator _freeEnergyCalculator;
     [SerializeField] private BeliefState _beliefState;
     [SerializeField] private QuantumDharmaNPC _npc;
+    [SerializeField] private SessionMemory _sessionMemory;
+
+    [Header("Components — Action (optional)")]
+    [SerializeField] private LookAtController _lookAtController;
+    [SerializeField] private EmotionAnimator _emotionAnimator;
 
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
@@ -98,6 +103,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     private int[] _lastTrackedIds;
     private int _lastTrackedCount;
 
+    // Per-player interaction time tracking (parallel with _lastTrackedIds)
+    private float[] _interactionTimes;
+    private const int MAX_TRACK = 80;
+
     private void Start()
     {
         _npcState = NPC_STATE_SILENCE;
@@ -105,8 +114,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         _decisionTimer = 0f;
         _dominantIntent = 1; // Neutral
         _focusSlot = -1;
-        _lastTrackedIds = new int[80];
+        _lastTrackedIds = new int[MAX_TRACK];
         _lastTrackedCount = 0;
+        _interactionTimes = new float[MAX_TRACK];
     }
 
     private void Update()
@@ -215,7 +225,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
         }
 
-        // Unregister players that left
+        // Unregister players that left — save to SessionMemory first
         for (int i = 0; i < _lastTrackedCount; i++)
         {
             int oldId = _lastTrackedIds[i];
@@ -228,19 +238,76 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             }
             if (!stillPresent)
             {
+                // Save to session memory before unregistering
+                if (_sessionMemory != null && _beliefState != null)
+                {
+                    int bSlot = _beliefState.FindSlot(oldId);
+                    if (bSlot >= 0)
+                    {
+                        _sessionMemory.SavePlayer(
+                            oldId,
+                            _beliefState.GetSlotTrust(bSlot),
+                            _beliefState.GetSlotKindness(bSlot),
+                            _interactionTimes[i],
+                            _beliefState.GetDominantIntent(bSlot),
+                            _beliefState.IsFriend(bSlot)
+                        );
+                    }
+                }
+
                 if (_freeEnergyCalculator != null) _freeEnergyCalculator.UnregisterPlayer(oldId);
                 if (_beliefState != null) _beliefState.UnregisterPlayer(oldId);
+
+                // Clear interaction time
+                _interactionTimes[i] = 0f;
             }
         }
 
-        // Register new players
+        // Register new players — restore from SessionMemory if available
         for (int i = 0; i < count; i++)
         {
             int id = currentIds[i];
             if (id < 0) continue;
 
             if (_freeEnergyCalculator != null) _freeEnergyCalculator.RegisterPlayer(id);
-            if (_beliefState != null) _beliefState.RegisterPlayer(id);
+            if (_beliefState != null)
+            {
+                int slot = _beliefState.RegisterPlayer(id);
+
+                // Restore from session memory if this player was seen before
+                if (slot >= 0 && _sessionMemory != null)
+                {
+                    int memSlot = _sessionMemory.FindMemorySlot(id);
+                    if (memSlot >= 0)
+                    {
+                        float savedTrust = _sessionMemory.GetMemoryTrust(memSlot);
+                        float savedKindness = _sessionMemory.GetMemoryKindness(memSlot);
+                        _beliefState.RestoreSlot(slot, savedTrust, savedKindness);
+                    }
+                }
+            }
+        }
+
+        // Update interaction times for currently tracked players
+        for (int i = 0; i < count; i++)
+        {
+            // Find this player's previous tracking index to carry over time
+            int id = currentIds[i];
+            bool foundPrev = false;
+            for (int j = 0; j < _lastTrackedCount; j++)
+            {
+                if (_lastTrackedIds[j] == id)
+                {
+                    // Carry forward and accumulate
+                    _interactionTimes[i] = _interactionTimes[j] + _decisionInterval;
+                    foundPrev = true;
+                    break;
+                }
+            }
+            if (!foundPrev)
+            {
+                _interactionTimes[i] = 0f;
+            }
         }
 
         // Cache focus player slot
@@ -252,7 +319,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                 _focusSlot = _beliefState.FindSlot(_focusPlayer.playerId);
         }
 
-        // Save for next tick
+        // Save IDs for next tick (copy to avoid stale references)
+        // We need a temporary buffer because interaction times were
+        // already updated in-place above using the new layout
         for (int i = 0; i < count; i++)
         {
             _lastTrackedIds[i] = currentIds[i];
@@ -606,6 +675,11 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
         float normalizedF = _freeEnergy / Mathf.Max(_retreatThreshold, 0.01f);
         return Mathf.Clamp01(normalizedF);
+    }
+
+    public SessionMemory GetSessionMemory()
+    {
+        return _sessionMemory;
     }
 
     public string GetNPCStateName()

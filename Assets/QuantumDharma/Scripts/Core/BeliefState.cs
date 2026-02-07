@@ -279,6 +279,18 @@ public class BeliefState : UdonSharpBehaviour
         return -1;
     }
 
+    /// <summary>
+    /// Restore trust and kindness from SessionMemory into an active slot.
+    /// Called when a previously-seen player re-enters detection range.
+    /// Preserved values prime the Bayesian inference with prior relationship context.
+    /// </summary>
+    public void RestoreSlot(int slot, float trust, float kindness)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
+        _slotTrust[slot] = Mathf.Clamp(trust, -1f, 1f);
+        _slotKindness[slot] = Mathf.Max(0f, kindness);
+    }
+
     // ================================================================
     // Bayesian update
     // ================================================================

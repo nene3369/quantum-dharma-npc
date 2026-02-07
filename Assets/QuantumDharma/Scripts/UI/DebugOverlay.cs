@@ -41,6 +41,8 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private QuantumDharmaNPC _npc;
     [SerializeField] private HandProximityDetector _handProximityDetector;
     [SerializeField] private PostureDetector _postureDetector;
+    [SerializeField] private SessionMemory _sessionMemory;
+    [SerializeField] private LookAtController _lookAtController;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -323,6 +325,36 @@ public class DebugOverlay : UdonSharpBehaviour
                 {
                     details += "\n\"" + utt + "\"";
                 }
+            }
+
+            // Session memory line
+            if (_sessionMemory != null)
+            {
+                string memLine = "\nMem:" + _sessionMemory.GetMemoryCount().ToString() +
+                    " Friends:" + _sessionMemory.GetFriendCount().ToString();
+
+                // Show memory for focus player
+                VRCPlayerApi fp = _manager.GetFocusPlayer();
+                if (fp != null && fp.IsValid())
+                {
+                    string memDebug = _sessionMemory.GetMemoryDebugString(fp.playerId);
+                    if (memDebug.Length > 0)
+                    {
+                        memLine += " | " + memDebug;
+                    }
+                }
+                details += memLine;
+            }
+
+            // Gaze line
+            if (_lookAtController != null)
+            {
+                string gazeLine = "\nGaze:" + _lookAtController.GetGazeWeight().ToString("F2");
+                if (_lookAtController.IsGlancingBack())
+                {
+                    gazeLine += " [Glance]";
+                }
+                details += gazeLine;
             }
 
             _detailsLabel.text = details;

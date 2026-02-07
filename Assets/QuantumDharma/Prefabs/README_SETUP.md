@@ -18,12 +18,15 @@ Create the following hierarchy in your scene:
 
 ```
 QuantumDharmaNPC              ← Empty GameObject (root)
-├── Model                     ← Your NPC mesh/avatar model
+├── Model                     ← Your NPC mesh/avatar model (+ Animator)
 ├── MarkovBlanket             ← Empty GameObject
 ├── PlayerSensor              ← Empty GameObject
 ├── HandProximityDetector     ← Empty GameObject (optional)
 ├── PostureDetector           ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
+├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
+├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
+├── SessionMemory             ← Empty GameObject (optional)
 ├── QuantumDharmaManager      ← Empty GameObject
 ├── FreeEnergyVisualizer      ← Empty GameObject + LineRenderer
 └── DebugCanvas               ← World-space Canvas
@@ -90,6 +93,53 @@ No special components needed on the root. Position this where you want the NPC t
    - **Crouch Kindness Multiplier:** 1.5 (trust boost when crouching)
    - **Poll Interval:** 0.25
 
+### 2f. LookAtController (optional)
+
+1. Create an empty child GameObject under the NPC root named `LookAtController`
+2. Add **UdonBehaviour**
+3. Attach script: `LookAtController.cs`
+4. Configure in Inspector:
+   - **Animator:** drag the Animator component on the Model GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **NPC:** (optional) drag the QuantumDharmaNPC GameObject
+   - **Eye Height Offset:** 1.5 (height of NPC eyes above pivot)
+   - **Weight Transition Time:** 0.4 (seconds to ease gaze in/out)
+5. **Important — Animator setup:**
+   - The NPC's Animator Controller must have **IK Pass** enabled on the relevant layer
+   - Requires a humanoid rig or Animator with IK support
+   - Set `Blink` parameter name to match your blend shape or animation parameter
+
+### 2f-ii. EmotionAnimator (optional)
+
+1. Create an empty child GameObject under the NPC root named `EmotionAnimator`
+2. Add **UdonBehaviour**
+3. Attach script: `EmotionAnimator.cs`
+4. Configure in Inspector:
+   - **Animator:** drag the Animator component on the Model GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **NPC:** (optional) drag the QuantumDharmaNPC GameObject
+   - **Markov Blanket:** (optional) drag MarkovBlanket
+   - **NPC Motor:** (optional) drag NPCMotor
+   - **Crossfade Speed:** 3 (how fast emotion weights blend)
+5. **Important — Animator Controller setup:**
+   - Create float parameters: `EmotionCalm`, `EmotionCurious`, `EmotionWary`, `EmotionWarm`, `EmotionAfraid`
+   - Create system parameters: `BreathAmplitude`, `NpcState`, `FreeEnergy`, `Trust`, `MotorSpeed`
+   - Use a 2D or 1D Blend Tree to mix posture/gesture clips based on these parameters
+
+### 2f-iii. SessionMemory (optional)
+
+1. Create an empty child GameObject under the NPC root named `SessionMemory`
+2. Add **UdonBehaviour**
+3. Attach script: `SessionMemory.cs`
+4. Configure in Inspector:
+   - **Absent Trust Decay Rate:** 0.002 (trust loss per second while absent)
+   - **Friend Trust Floor:** 0.3 (friends are never forgotten below this)
+   - **Friend Trust Threshold / Kindness Threshold:** match BeliefState settings
+   - **Decay Interval:** 5 (seconds between memory decay passes)
+5. **VRChat networking:**
+   - Set **Sync Mode** on the UdonBehaviour to **Manual**
+   - SessionMemory uses `[UdonSynced]` arrays so all players see consistent NPC memory
+
 ### 2g. NPCMotor
 
 1. Add **UdonBehaviour**
@@ -109,11 +159,18 @@ No special components needed on the root. Position this where you want the NPC t
 
 1. Add **UdonBehaviour**
 2. Attach script: `QuantumDharmaManager.cs`
-3. Wire references in Inspector:
+3. Wire required references in Inspector:
    - **Player Sensor:** drag the PlayerSensor GameObject
    - **Markov Blanket:** drag the MarkovBlanket GameObject
    - **NPC Motor:** drag the NPCMotor GameObject
-4. Tune thresholds (defaults are good starting points):
+4. Wire optional enhanced references:
+   - **Free Energy Calculator:** (optional) drag FreeEnergyCalculator
+   - **Belief State:** (optional) drag BeliefState
+   - **NPC:** (optional) drag QuantumDharmaNPC
+   - **Session Memory:** (optional) drag SessionMemory
+   - **Look At Controller:** (optional) drag LookAtController
+   - **Emotion Animator:** (optional) drag EmotionAnimator
+5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
    - **Retreat Threshold:** 6.0
@@ -189,10 +246,28 @@ HandProximityDetector
 PostureDetector
   └─→ PlayerSensor             (reads tracked players)
 
+LookAtController
+  ├─→ Animator                 (drives IK look-at)
+  ├─→ QuantumDharmaManager     (reads NPC state + focus player)
+  └─→ QuantumDharmaNPC         (optional: reads emotion)
+
+EmotionAnimator
+  ├─→ Animator                 (drives blend tree parameters)
+  ├─→ QuantumDharmaManager     (reads NPC state + FE)
+  ├─→ QuantumDharmaNPC         (optional: reads emotion)
+  ├─→ MarkovBlanket            (optional: reads trust)
+  └─→ NPCMotor                 (optional: reads motor speed)
+
+SessionMemory
+  (no outgoing references — called by QuantumDharmaManager)
+
 QuantumDharmaManager
   ├─→ PlayerSensor             (reads player observations + hand/crouch)
   ├─→ MarkovBlanket            (reads trust, sends trust adjustments)
-  └─→ NPCMotor                 (issues movement commands)
+  ├─→ NPCMotor                 (issues movement commands)
+  ├─→ SessionMemory            (optional: save/restore player relationships)
+  ├─→ LookAtController         (optional: referenced for wiring)
+  └─→ EmotionAnimator          (optional: referenced for wiring)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -203,7 +278,9 @@ DebugOverlay
   ├─→ PlayerSensor             (reads tracked player count)
   ├─→ NPCMotor                 (reads motor state)
   ├─→ HandProximityDetector    (optional: reads hand proximity data)
-  └─→ PostureDetector          (optional: reads posture data)
+  ├─→ PostureDetector          (optional: reads posture data)
+  ├─→ SessionMemory            (optional: reads memory count + friend count)
+  └─→ LookAtController         (optional: reads gaze weight)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -224,7 +301,14 @@ FreeEnergyVisualizer
 - [ ] Crouch near NPC — verify "Crouch" indicator and trust growth acceleration
 - [ ] Toggle DebugOverlay by clicking/interacting with the NPC
 - [ ] Check FreeEnergyVisualizer ring matches blanket radius and pulses with PE
-- [ ] Build & Test with 2 clients to verify network sync on NPCMotor
+- [ ] Verify NPC gaze tracks your head when in Observe/Approach state
+- [ ] During Retreat, verify NPC looks away with occasional glance-back
+- [ ] In Silence, verify NPC slowly drifts gaze (idle look-around)
+- [ ] Verify blink rate increases when free energy is high (nervous)
+- [ ] Verify emotion blend weights crossfade smoothly in Animator
+- [ ] Walk away and return — verify trust/kindness are restored from session memory
+- [ ] Check "Mem" line in DebugOverlay shows memory count and friend status
+- [ ] Build & Test with 2 clients to verify network sync on NPCMotor and SessionMemory
 
 ---
 
