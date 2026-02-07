@@ -267,7 +267,7 @@ public class SessionMemory : UdonSharpBehaviour
             {
                 _memSlotActive[i] = false;
                 _memPlayerIds[i] = -1;
-                _memCount--;
+                if (_memCount > 0) _memCount--;
             }
 
             changed = true;
@@ -317,7 +317,7 @@ public class SessionMemory : UdonSharpBehaviour
         {
             _memSlotActive[oldestSlot] = false;
             _memPlayerIds[oldestSlot] = -1;
-            _memCount--;
+            if (_memCount > 0) _memCount--;
         }
 
         return oldestSlot;

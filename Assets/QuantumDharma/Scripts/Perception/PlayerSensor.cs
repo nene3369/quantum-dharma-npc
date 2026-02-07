@@ -45,6 +45,10 @@ public class PlayerSensor : UdonSharpBehaviour
     // Previous positions for finite-difference velocity estimation
     private Vector3[] _prevPositions;
 
+    // Saved data from previous scan (for exit detection and velocity)
+    private int[] _prevPlayerIds;
+    private int _prevTrackedCount;
+
     private float _pollTimer;
 
     private void Start()
@@ -56,6 +60,8 @@ public class PlayerSensor : UdonSharpBehaviour
         _playerGazeDirections = new Vector3[MAX_PLAYERS];
         _playerDistances = new float[MAX_PLAYERS];
         _prevPositions = new Vector3[MAX_PLAYERS];
+        _prevPlayerIds = new int[MAX_PLAYERS];
+        _prevTrackedCount = 0;
         _trackedCount = 0;
         _pollTimer = 0f;
     }
@@ -79,15 +85,22 @@ public class PlayerSensor : UdonSharpBehaviour
         float radiusSqr = radius * radius;
         Vector3 npcPos = transform.position;
 
-        // Fetch all players currently in the instance
-        VRCPlayerApi[] allPlayers = new VRCPlayerApi[MAX_PLAYERS];
-        VRCPlayerApi.GetPlayers(allPlayers);
+        // Save previous scan state for exit detection and velocity estimation
+        _prevTrackedCount = _trackedCount;
+        for (int i = 0; i < _prevTrackedCount; i++)
+        {
+            VRCPlayerApi tp = _trackedPlayers[i];
+            _prevPlayerIds[i] = (tp != null && tp.IsValid()) ? tp.playerId : -1;
+        }
+
+        // Fetch all players using pre-allocated buffer
+        VRCPlayerApi.GetPlayers(_allPlayersBuffer);
 
         int newTrackedCount = 0;
 
-        for (int i = 0; i < allPlayers.Length; i++)
+        for (int i = 0; i < _allPlayersBuffer.Length; i++)
         {
-            VRCPlayerApi player = allPlayers[i];
+            VRCPlayerApi player = _allPlayersBuffer[i];
             if (player == null) continue;
             if (!player.IsValid()) continue;
 
@@ -100,9 +113,8 @@ public class PlayerSensor : UdonSharpBehaviour
             float dist = Mathf.Sqrt(distSqr);
             int slot = newTrackedCount;
 
-            // Velocity via finite difference (VRCPlayerApi.GetVelocity() is
-            // unreliable on remote players, so we estimate from position delta)
-            Vector3 prevPos = FindPreviousPosition(player, playerPos);
+            // Velocity via finite difference using saved previous positions
+            Vector3 prevPos = FindPreviousPosition(player.playerId, playerPos);
             Vector3 velocity = (playerPos - prevPos) / Mathf.Max(_pollInterval, Time.deltaTime);
 
             // Gaze: head rotation forward vector
@@ -118,17 +130,17 @@ public class PlayerSensor : UdonSharpBehaviour
             newTrackedCount++;
         }
 
-        // Detect exits: players that were tracked but no longer are
-        for (int i = 0; i < _trackedCount; i++)
+        // Detect exits using saved IDs (not overwritten _trackedPlayers)
+        for (int i = 0; i < _prevTrackedCount; i++)
         {
-            VRCPlayerApi prev = _trackedPlayers[i];
-            if (prev == null || !prev.IsValid()) continue;
+            int prevId = _prevPlayerIds[i];
+            if (prevId < 0) continue;
 
             bool stillTracked = false;
             for (int j = 0; j < newTrackedCount; j++)
             {
                 if (_trackedPlayers[j] != null &&
-                    _trackedPlayers[j].playerId == prev.playerId)
+                    _trackedPlayers[j].playerId == prevId)
                 {
                     stillTracked = true;
                     break;
@@ -137,13 +149,19 @@ public class PlayerSensor : UdonSharpBehaviour
 
             if (!stillTracked)
             {
-                OnPlayerExitRadius(prev);
+                // Player left — find their VRCPlayerApi from the allPlayers buffer
+                for (int k = 0; k < _allPlayersBuffer.Length; k++)
+                {
+                    if (_allPlayersBuffer[k] != null && _allPlayersBuffer[k].IsValid() &&
+                        _allPlayersBuffer[k].playerId == prevId)
+                    {
+                        OnPlayerExitRadius(_allPlayersBuffer[k]);
+                        break;
+                    }
+                }
             }
         }
 
-        // Detect entries: players tracked now that weren't before
-        // (comparison against old _trackedCount is done before we overwrite)
-        int oldTrackedCount = _trackedCount;
         _trackedCount = newTrackedCount;
 
         // Push observations to FreeEnergyCalculator
@@ -151,16 +169,14 @@ public class PlayerSensor : UdonSharpBehaviour
     }
 
     /// <summary>
-    /// Look up the previous position for a given player from the last scan.
+    /// Look up the previous position for a given player ID from the saved state.
     /// Falls back to current position if the player was not previously tracked.
     /// </summary>
-    private Vector3 FindPreviousPosition(VRCPlayerApi player, Vector3 fallback)
+    private Vector3 FindPreviousPosition(int playerId, Vector3 fallback)
     {
-        for (int i = 0; i < _trackedCount; i++)
+        for (int i = 0; i < _prevTrackedCount; i++)
         {
-            if (_trackedPlayers[i] != null &&
-                _trackedPlayers[i].IsValid() &&
-                _trackedPlayers[i].playerId == player.playerId)
+            if (_prevPlayerIds[i] == playerId)
             {
                 return _prevPositions[i];
             }

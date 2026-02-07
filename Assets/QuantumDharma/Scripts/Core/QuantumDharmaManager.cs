@@ -128,6 +128,8 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
     // Per-player interaction time tracking (parallel with _lastTrackedIds)
     private float[] _interactionTimes;
+    private float[] _tempInteractionTimes; // temp buffer for carry-forward
+    private int[] _currentIds;             // pre-allocated buffer for current IDs
     private const int MAX_TRACK = 80;
 
     // Touch/gift state override: brief forced state after touch/gift events
@@ -146,6 +148,8 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         _lastTrackedIds = new int[MAX_TRACK];
         _lastTrackedCount = 0;
         _interactionTimes = new float[MAX_TRACK];
+        _tempInteractionTimes = new float[MAX_TRACK];
+        _currentIds = new int[MAX_TRACK];
         _touchForcedRetreat = false;
         _touchRetreatUntil = 0f;
         _giftForcedWarm = false;
@@ -294,12 +298,11 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         int count = _playerSensor.GetTrackedPlayerCount();
 
-        // Build current tracked ID list
-        int[] currentIds = new int[count];
+        // Build current tracked ID list (re-use pre-allocated buffer)
         for (int i = 0; i < count; i++)
         {
             VRCPlayerApi p = _playerSensor.GetTrackedPlayer(i);
-            currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
+            __currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
         }
 
         // Unregister players that left — save to SessionMemory first
@@ -311,7 +314,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             bool stillPresent = false;
             for (int j = 0; j < count; j++)
             {
-                if (currentIds[j] == oldId) { stillPresent = true; break; }
+                if (_currentIds[j] == oldId) { stillPresent = true; break; }
             }
             if (!stillPresent)
             {
@@ -343,11 +346,19 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             }
         }
 
-        // Register new players — restore from SessionMemory if available
+        // Register NEW players only — skip already-tracked ones
         for (int i = 0; i < count; i++)
         {
-            int id = currentIds[i];
+            int id = _currentIds[i];
             if (id < 0) continue;
+
+            // Check if this player was already tracked last tick
+            bool wasTracked = false;
+            for (int j = 0; j < _lastTrackedCount; j++)
+            {
+                if (_lastTrackedIds[j] == id) { wasTracked = true; break; }
+            }
+            if (wasTracked) continue;
 
             if (_freeEnergyCalculator != null) _freeEnergyCalculator.RegisterPlayer(id);
             if (_beliefState != null)
@@ -402,25 +413,29 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         // Update interaction times for currently tracked players
+        // Use temp buffer to avoid in-place corruption when indices shift
         for (int i = 0; i < count; i++)
         {
-            // Find this player's previous tracking index to carry over time
-            int id = currentIds[i];
+            int id = _currentIds[i];
             bool foundPrev = false;
             for (int j = 0; j < _lastTrackedCount; j++)
             {
                 if (_lastTrackedIds[j] == id)
                 {
-                    // Carry forward and accumulate
-                    _interactionTimes[i] = _interactionTimes[j] + _decisionInterval;
+                    _tempInteractionTimes[i] = _interactionTimes[j] + _decisionInterval;
                     foundPrev = true;
                     break;
                 }
             }
             if (!foundPrev)
             {
-                _interactionTimes[i] = 0f;
+                _tempInteractionTimes[i] = 0f;
             }
+        }
+        // Copy temp buffer into main interaction times
+        for (int i = 0; i < count; i++)
+        {
+            _interactionTimes[i] = _tempInteractionTimes[i];
         }
 
         // Cache focus player slot
@@ -432,12 +447,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                 _focusSlot = _beliefState.FindSlot(_focusPlayer.playerId);
         }
 
-        // Save IDs for next tick (copy to avoid stale references)
-        // We need a temporary buffer because interaction times were
-        // already updated in-place above using the new layout
+        // Save IDs for next tick
         for (int i = 0; i < count; i++)
         {
-            _lastTrackedIds[i] = currentIds[i];
+            _lastTrackedIds[i] = _currentIds[i];
         }
         _lastTrackedCount = count;
     }

@@ -97,6 +97,11 @@ public class LookAtController : UdonSharpBehaviour
     // Runtime state
     // ================================================================
 
+    // Bone references (cached in Start for LateUpdate manipulation)
+    private Transform _headBone;
+    private Transform _eyeBoneL;
+    private Transform _eyeBoneR;
+
     // Current/target gaze
     private Vector3 _currentLookTarget;
     private Vector3 _desiredLookTarget;
@@ -153,6 +158,14 @@ public class LookAtController : UdonSharpBehaviour
         _blinkNextTime = Random.Range(_blinkIntervalCalm * 0.5f, _blinkIntervalCalm);
         _blinkPhase = 0f;
         _blinkParamHash = Animator.StringToHash(_blinkParamName);
+
+        // Cache bone transforms for LateUpdate gaze (OnAnimatorIK is not available in Udon)
+        if (_animator != null)
+        {
+            _headBone = _animator.GetBoneTransform(HumanBodyBones.Head);
+            _eyeBoneL = _animator.GetBoneTransform(HumanBodyBones.LeftEye);
+            _eyeBoneR = _animator.GetBoneTransform(HumanBodyBones.RightEye);
+        }
     }
 
     private void Update()
@@ -180,29 +193,40 @@ public class LookAtController : UdonSharpBehaviour
     }
 
     // ================================================================
-    // OnAnimatorIK — called by Animator when IK Pass is enabled
+    // LateUpdate — apply gaze via bone rotation (Udon has no OnAnimatorIK)
     // ================================================================
 
-    public void OnAnimatorIK(int layerIndex)
+    private void LateUpdate()
     {
-        if (_animator == null) return;
+        if (_animator == null || _currentWeight < 0.01f) return;
 
-        if (_currentWeight < 0.01f)
+        Vector3 lookTarget = _currentLookTarget + _saccadeOffset;
+
+        // Head bone look-at
+        if (_headBone != null)
         {
-            _animator.SetLookAtWeight(0f);
-            return;
+            Vector3 headToTarget = lookTarget - _headBone.position;
+            if (headToTarget.sqrMagnitude > 0.001f)
+            {
+                Quaternion targetRot = Quaternion.LookRotation(headToTarget);
+                _headBone.rotation = Quaternion.Slerp(
+                    _headBone.rotation, targetRot, _currentWeight * _maxHeadWeight);
+            }
         }
 
-        // Apply look-at with per-component weights
-        float w = _currentWeight;
-        _animator.SetLookAtPosition(_currentLookTarget + _saccadeOffset);
-        _animator.SetLookAtWeight(
-            w,                                      // overall weight
-            w * _maxBodyWeight / Mathf.Max(w, 0.01f), // body
-            w * _maxHeadWeight / Mathf.Max(w, 0.01f), // head
-            w * _maxEyesWeight / Mathf.Max(w, 0.01f), // eyes
-            0.5f                                     // clamp
-        );
+        // Eye bones look-at
+        ApplyEyeLookAt(_eyeBoneL, lookTarget);
+        ApplyEyeLookAt(_eyeBoneR, lookTarget);
+    }
+
+    private void ApplyEyeLookAt(Transform eyeBone, Vector3 target)
+    {
+        if (eyeBone == null) return;
+        Vector3 toTarget = target - eyeBone.position;
+        if (toTarget.sqrMagnitude < 0.001f) return;
+        Quaternion targetRot = Quaternion.LookRotation(toTarget);
+        eyeBone.rotation = Quaternion.Slerp(
+            eyeBone.rotation, targetRot, _currentWeight * _maxEyesWeight);
     }
 
     // ================================================================
