@@ -387,6 +387,20 @@ public class SessionMemory : UdonSharpBehaviour
         return total;
     }
 
+    /// <summary>Get average trust across all active memory slots (for DreamNarrative).</summary>
+    public float GetAverageTrust()
+    {
+        int count = 0;
+        float sum = 0f;
+        for (int i = 0; i < MAX_MEMORY; i++)
+        {
+            if (!_memSlotActive[i]) continue;
+            sum += _memTrust[i];
+            count++;
+        }
+        return count > 0 ? sum / count : 0f;
+    }
+
     // ================================================================
     // Dream consolidation — offline belief update
     //

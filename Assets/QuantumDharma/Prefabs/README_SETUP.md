@@ -29,6 +29,11 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── MirrorBehavior            ← Empty GameObject (optional)
 ├── ContextualUtterance       ← Empty GameObject (optional)
 ├── ProximityAudio            ← Empty GO + AudioSource (optional)
+├── VoiceDetector             ← Empty GameObject (optional)
+├── DreamNarrative            ← Empty GameObject (optional)
+├── AdaptivePersonality       ← Empty GameObject (optional)
+├── IdleWaypoints             ← Empty GO + child Transforms (optional)
+├── TrustVisualizer           ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -75,6 +80,7 @@ No special components needed on the root. Position this where you want the NPC t
    - **Manager:** drag the QuantumDharmaManager GameObject
    - **Hand Proximity Detector:** (optional) drag the HandProximityDetector GameObject
    - **Posture Detector:** (optional) drag the PostureDetector GameObject
+   - **Voice Detector:** (optional) drag the VoiceDetector GameObject
 
 ### 2d. HandProximityDetector (optional)
 
@@ -230,6 +236,99 @@ No special components needed on the root. Position this where you want the NPC t
    - Gentle humming, slow breathing, or tonal drone
    - Pitch/volume modulation by the script creates emotional variation
 
+### 2g-iv. VoiceDetector (optional)
+
+1. Create an empty child GameObject under the NPC root named `VoiceDetector`
+2. Add **UdonBehaviour**
+3. Attach script: `VoiceDetector.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Engagement Distance:** 5 (max distance for engagement detection)
+   - **Gaze Threshold:** 0.5 (player must face NPC above this dot product)
+   - **Stillness Threshold:** 0.5 (max speed in m/s for "still" classification)
+   - **Close Distance:** 2 (distance that amplifies signal)
+   - **Poll Interval:** 0.25 (seconds between engagement checks)
+   - **Smooth Speed:** 4 (signal smoothing per second)
+5. **Note:** VRChat UdonSharp has no mic amplitude API. This detector uses a behavioral engagement proxy (proximity + gaze + stillness) to estimate voice activity. If VRChat adds voice APIs in the future, this can be upgraded while keeping the same signal interface.
+
+### 2g-v. DreamNarrative (optional)
+
+1. Create an empty child GameObject under the NPC root named `DreamNarrative`
+2. Add **UdonBehaviour**
+3. Attach script: `DreamNarrative.cs`
+4. Configure in Inspector:
+   - **Dream State:** drag the DreamState GameObject
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **Narrative Delay:** 3.5 (seconds after wake before narrative appears)
+   - **Display Duration:** 6 (seconds narrative stays visible)
+   - **Min Dream Duration:** 10 (minimum dream length to trigger narrative)
+   - **Warm Friend Ratio:** 0.4 (friend ratio above which = warm dream)
+   - **Warm Trust Threshold:** 0.2 (avg trust above which = warm dream)
+   - **Shadow Trust Threshold:** -0.1 (avg trust below which = shadow dream)
+5. **Dream tones:**
+   - Warm: many friends or high trust → "夢を見た…温かかった" / "I dreamed... it was warm"
+   - Shadow: negative trust dominates → "影の夢…" / "A dream of shadows..."
+   - Water: neutral/peaceful → "水の夢…静かだった" / "A dream of water... quiet"
+   - Void: no memories → "何もない夢…" / "An empty dream..."
+
+### 2g-vi. AdaptivePersonality (optional)
+
+1. Create an empty child GameObject under the NPC root named `AdaptivePersonality`
+2. Add **UdonBehaviour**
+3. Attach script: `AdaptivePersonality.cs`
+4. Configure in Inspector:
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Update Interval:** 30 (seconds between personality evolution ticks)
+   - **Change Rate:** 0.002 (very small per-tick change)
+   - **Min Value / Max Value:** 0.1 / 0.9 (personality axis bounds)
+   - **Starting Values:** Sociability 0.5, Cautiousness 0.5, Expressiveness 0.5
+5. **Personality axes:**
+   - Sociability: willingness to approach, trust growth rate modifier
+   - Cautiousness: retreat sensitivity, threat response amplification
+   - Expressiveness: speech frequency, emotion intensity, gesture amplitude
+6. **Note:** Changes are very slow (designed for hours of interaction). The NPC's personality gradually evolves based on how it's treated.
+
+### 2g-vii. IdleWaypoints (optional)
+
+1. Create an empty child GameObject under the NPC root named `IdleWaypoints`
+2. Add **UdonBehaviour**
+3. Attach script: `IdleWaypoints.cs`
+4. Create waypoint child Transforms:
+   - Create 3-6 empty child GameObjects as waypoints (e.g., `Waypoint0`, `Waypoint1`, ...)
+   - Position them around the NPC's home area (where it patrols when no players are nearby)
+5. Configure in Inspector:
+   - **Waypoints:** drag all waypoint Transforms into the array
+   - **Min Pause Duration:** 5 (seconds minimum pause at each waypoint)
+   - **Max Pause Duration:** 15 (seconds maximum pause at each waypoint)
+   - **Arrival Distance:** 1.0 (meters from waypoint to consider arrived)
+6. **Activation:** Only active during Silence state with no tracked players and not during dream cycle. The NPC walks sequentially between waypoints, pausing randomly at each one.
+
+### 2g-viii. TrustVisualizer (optional)
+
+1. Create an empty child GameObject under the NPC root named `TrustVisualizer`
+2. Add **UdonBehaviour**
+3. Attach script: `TrustVisualizer.cs`
+4. Configure in Inspector:
+   - **Markov Blanket:** drag the MarkovBlanket GameObject
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **Dream State:** (optional) drag the DreamState GameObject
+   - **Belief State:** (optional) drag the BeliefState GameObject
+   - **Manager:** (optional) drag the QuantumDharmaManager GameObject
+   - **Renderers:** drag all NPC model Renderers into the array
+   - **Trust Colors:** Low Trust (0.2, 0.25, 0.4), Neutral (0.5, 0.5, 0.55), High Trust (0.9, 0.75, 0.5)
+   - **Emission Colors:** Warm (0.4, 0.3, 0.15), Friend (0.5, 0.4, 0.1), Anxious (0.3, 0.1, 0.1), Grateful (0.5, 0.35, 0.1)
+   - **Dream Colors:** Dream (0.3, 0.25, 0.5), Emission Dream (0.2, 0.15, 0.4)
+   - **Max Emission Intensity:** 0.5
+   - **Color Smooth Speed:** 2 (per second)
+   - **Dream Pulse Speed:** 1.5 (radians per second)
+5. **Shader requirements:**
+   - NPC material must support `_Color` and `_EmissionColor` properties
+   - Standard Shader or any shader with these property names works
+   - Uses MaterialPropertyBlock (no material instances created — Quest safe)
+
 ### 2h. LookAtController (optional)
 
 1. Create an empty child GameObject under the NPC root named `LookAtController`
@@ -313,6 +412,11 @@ No special components needed on the root. Position this where you want the NPC t
    - **Proximity Audio:** (optional) drag ProximityAudio
    - **Dream State:** (optional) drag DreamState
    - **Contextual Utterance:** (optional) drag ContextualUtterance
+   - **Voice Detector:** (optional) drag VoiceDetector
+   - **Dream Narrative:** (optional) drag DreamNarrative
+   - **Adaptive Personality:** (optional) drag AdaptivePersonality
+   - **Trust Visualizer:** (optional) drag TrustVisualizer
+   - **Idle Waypoints:** (optional) drag IdleWaypoints
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -361,6 +465,11 @@ No special components needed on the root. Position this where you want the NPC t
    - **Mirror Behavior:** (optional) drag MirrorBehavior
    - **Contextual Utterance:** (optional) drag ContextualUtterance
    - **Proximity Audio:** (optional) drag ProximityAudio
+   - **Voice Detector:** (optional) drag VoiceDetector
+   - **Dream Narrative:** (optional) drag DreamNarrative
+   - **Adaptive Personality:** (optional) drag AdaptivePersonality
+   - **Trust Visualizer:** (optional) drag TrustVisualizer
+   - **Idle Waypoints:** (optional) drag IdleWaypoints
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -389,7 +498,8 @@ PlayerSensor
   ├─→ MarkovBlanket            (reads detection radius)
   ├─→ QuantumDharmaManager     (notifies on observation update)
   ├─→ HandProximityDetector    (optional: delegates hand queries)
-  └─→ PostureDetector          (optional: delegates posture queries)
+  ├─→ PostureDetector          (optional: delegates posture queries)
+  └─→ VoiceDetector            (optional: delegates voice/engagement queries)
 
 HandProximityDetector
   └─→ PlayerSensor             (reads tracked players + distances)
@@ -441,6 +551,29 @@ ProximityAudio
   ├─→ QuantumDharmaManager     (reads focus distance)
   └─→ DreamState               (optional: reads dream state for audio modulation)
 
+VoiceDetector
+  └─→ PlayerSensor             (reads tracked players, distances, gaze, velocity)
+
+DreamNarrative
+  ├─→ DreamState               (reads dream duration)
+  ├─→ SessionMemory            (reads memory count, friend count, avg trust)
+  └─→ QuantumDharmaNPC         (calls ForceDisplayText for dream speech)
+
+AdaptivePersonality
+  ├─→ SessionMemory            (reads friend count + memory count)
+  ├─→ BeliefState              (reads dominant intent for sampling)
+  └─→ QuantumDharmaManager     (reads focus slot)
+
+IdleWaypoints
+  (no outgoing references — called by QuantumDharmaManager, uses NPCMotor)
+
+TrustVisualizer
+  ├─→ MarkovBlanket            (reads trust for color mapping)
+  ├─→ QuantumDharmaNPC         (reads emotion for emission modulation)
+  ├─→ DreamState               (optional: reads dream cycle for purple pulse)
+  ├─→ BeliefState              (optional: reads per-player friend status)
+  └─→ QuantumDharmaManager     (optional: reads focus slot)
+
 QuantumDharmaManager
   ├─→ PlayerSensor             (reads player observations + hand/crouch)
   ├─→ MarkovBlanket            (reads trust, sends trust adjustments)
@@ -453,7 +586,12 @@ QuantumDharmaManager
   ├─→ DreamState               (optional: reads dream cycle, consumes wake events)
   ├─→ ContextualUtterance      (optional: notifies on player registration + dream wake)
   ├─→ MirrorBehavior           (optional: referenced for wiring)
-  └─→ ProximityAudio           (optional: referenced for wiring)
+  ├─→ ProximityAudio           (optional: referenced for wiring)
+  ├─→ VoiceDetector            (optional: reads voice signal for belief update)
+  ├─→ DreamNarrative           (optional: notifies on dream wake)
+  ├─→ AdaptivePersonality      (optional: referenced for wiring)
+  ├─→ TrustVisualizer          (optional: referenced for wiring)
+  └─→ IdleWaypoints            (optional: patrols during Silence with no players)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -472,7 +610,12 @@ DebugOverlay
   ├─→ DreamState               (optional: reads dream phase + duration)
   ├─→ MirrorBehavior           (optional: reads mirror state + intensity)
   ├─→ ContextualUtterance      (optional: reads last situation type)
-  └─→ ProximityAudio           (optional: reads audio volume + pitch)
+  ├─→ ProximityAudio           (optional: reads audio volume + pitch)
+  ├─→ VoiceDetector            (optional: reads voice/engagement signal)
+  ├─→ DreamNarrative           (optional: reads dream tone + narrative text)
+  ├─→ AdaptivePersonality      (optional: reads personality axes)
+  ├─→ TrustVisualizer          (optional: reads emission intensity)
+  └─→ IdleWaypoints            (optional: reads patrol state + waypoint index)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -533,6 +676,27 @@ FreeEnergyVisualizer
 - [ ] Walk beyond 5m — verify audio fades to silence
 - [ ] While NPC dreams — verify very quiet, slow-pitch dream audio
 - [ ] Check "Audio:" line in DebugOverlay showing volume + pitch
+- [ ] Stand still near NPC, face it — verify "Voice:" line shows engagement signal > 0
+- [ ] Walk around quickly while near NPC — verify voice signal drops (movement reduces engagement)
+- [ ] Face away from NPC while close — verify voice signal drops (gaze factor)
+- [ ] After dream wake — verify delayed dream narrative appears (~3.5s after "...ん?")
+- [ ] Dream with many friends → verify warm narrative ("夢を見た…温かかった")
+- [ ] Dream with negative trust → verify shadow narrative ("影の夢…")
+- [ ] Dream with no memories → verify void narrative ("何もない夢…")
+- [ ] Check "DreamNarr:" line in DebugOverlay showing tone name
+- [ ] Leave NPC alone (no players) in Silence — verify idle waypoint patrol begins
+- [ ] Watch NPC walk between waypoints with random pauses
+- [ ] Enter sensor range during patrol — verify patrol stops immediately
+- [ ] Check "Patrol:" line in DebugOverlay showing Walk/Pause + waypoint index
+- [ ] At low trust — verify NPC model has cool/dark colors
+- [ ] Build trust up — verify NPC model shifts to warm golden colors with emission glow
+- [ ] Become a friend — verify subtle persistent golden aura
+- [ ] During dream — verify purple pulsing emission
+- [ ] Check "TrustViz em:" line in DebugOverlay showing emission intensity
+- [ ] After many friendly interactions — verify "Personality S:" increases in DebugOverlay
+- [ ] After threat encounters — verify "Personality C:" increases
+- [ ] After long peaceful existence — verify "Personality E:" increases
+- [ ] Verify personality changes are very slow (hours of interaction, not minutes)
 
 ---
 
@@ -546,3 +710,8 @@ FreeEnergyVisualizer
 - DreamState particles: reduce emission rate (1–2) on Quest; use mobile-friendly particle material
 - ProximityAudio: consider disabling on Quest if AudioSource performance is a concern
 - MirrorBehavior: minimal performance impact (runs per frame but only does Lerp + transform set)
+- VoiceDetector: poll interval 0.25s is fine; smoothing runs per frame but is lightweight (one Lerp per player)
+- TrustVisualizer: uses MaterialPropertyBlock (no material instances) — safe for Quest
+- IdleWaypoints: minimal performance (only active during Silence with no players)
+- AdaptivePersonality: updates every 30s — negligible performance impact
+- DreamNarrative: only active during wake transition — no ongoing cost

@@ -54,9 +54,18 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private MirrorBehavior _mirrorBehavior;
     [SerializeField] private ProximityAudio _proximityAudio;
 
+    [Header("Components — Perception Enhanced (optional)")]
+    [SerializeField] private VoiceDetector _voiceDetector;
+
     [Header("Components — Dream & Context (optional)")]
     [SerializeField] private DreamState _dreamState;
     [SerializeField] private ContextualUtterance _contextualUtterance;
+    [SerializeField] private DreamNarrative _dreamNarrative;
+
+    [Header("Components — Personality & Visualization (optional)")]
+    [SerializeField] private AdaptivePersonality _adaptivePersonality;
+    [SerializeField] private TrustVisualizer _trustVisualizer;
+    [SerializeField] private IdleWaypoints _idleWaypoints;
 
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
@@ -162,7 +171,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             // Still read observations to detect player arrival
             ReadObservations();
 
-            // Consume dream wake event → notify ContextualUtterance
+            // Consume dream wake event → notify ContextualUtterance + DreamNarrative
             if (_dreamState.ConsumePendingWake())
             {
                 int wakerId = _dreamState.GetWakePlayerId();
@@ -171,6 +180,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                     bool isRemembered = _sessionMemory != null && _sessionMemory.IsRemembered(wakerId);
                     bool isFriend = _sessionMemory != null && _sessionMemory.IsRememberedFriend(wakerId);
                     _contextualUtterance.NotifyDreamWake(wakerId, isRemembered, isFriend);
+                }
+
+                // Dream narrative: delayed utterance about what the NPC dreamed
+                if (_dreamNarrative != null)
+                {
+                    _dreamNarrative.OnDreamWake(_dreamState.GetDreamDuration());
                 }
             }
 
@@ -553,8 +568,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                 giftSignal = _giftReceiver.GetGiftSignal();
             }
 
+            // Voice/engagement signal (0 if detector not wired)
+            float voiceSignal = _playerSensor.GetTrackedVoiceSignal(i);
+
             _beliefState.UpdateBelief(slot, dist, approachSpeed, gazeDot, behaviorPE,
-                                       handSignal, crouchSignal, touchSignal, giftSignal);
+                                       handSignal, crouchSignal, touchSignal, giftSignal,
+                                       voiceSignal);
         }
 
         // Cache dominant intent for focus player
@@ -779,7 +798,17 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         switch (_npcState)
         {
             case NPC_STATE_SILENCE:
-                if (!_npcMotor.IsIdle()) _npcMotor.Stop();
+                // Idle waypoint patrol when no players and not dreaming
+                if (_idleWaypoints != null && _focusPlayer == null &&
+                    !(_dreamState != null && _dreamState.IsInDreamCycle()))
+                {
+                    _idleWaypoints.UpdatePatrol(_npcMotor);
+                }
+                else
+                {
+                    if (_idleWaypoints != null) _idleWaypoints.StopPatrol();
+                    if (!_npcMotor.IsIdle()) _npcMotor.Stop();
+                }
                 break;
             case NPC_STATE_OBSERVE:
                 if (_focusPlayer != null && _focusPlayer.IsValid())
@@ -933,5 +962,30 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public ProximityAudio GetProximityAudio()
     {
         return _proximityAudio;
+    }
+
+    public VoiceDetector GetVoiceDetector()
+    {
+        return _voiceDetector;
+    }
+
+    public DreamNarrative GetDreamNarrative()
+    {
+        return _dreamNarrative;
+    }
+
+    public AdaptivePersonality GetAdaptivePersonality()
+    {
+        return _adaptivePersonality;
+    }
+
+    public TrustVisualizer GetTrustVisualizer()
+    {
+        return _trustVisualizer;
+    }
+
+    public IdleWaypoints GetIdleWaypoints()
+    {
+        return _idleWaypoints;
     }
 }

@@ -49,6 +49,11 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private MirrorBehavior _mirrorBehavior;
     [SerializeField] private ContextualUtterance _contextualUtterance;
     [SerializeField] private ProximityAudio _proximityAudio;
+    [SerializeField] private VoiceDetector _voiceDetector;
+    [SerializeField] private DreamNarrative _dreamNarrative;
+    [SerializeField] private AdaptivePersonality _adaptivePersonality;
+    [SerializeField] private TrustVisualizer _trustVisualizer;
+    [SerializeField] private IdleWaypoints _idleWaypoints;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -462,6 +467,59 @@ public class DebugOverlay : UdonSharpBehaviour
             {
                 details += "\nAudio vol:" + _proximityAudio.GetCurrentVolume().ToString("F2") +
                     " pitch:" + _proximityAudio.GetCurrentPitch().ToString("F2");
+            }
+
+            // Voice/engagement line
+            if (_voiceDetector != null)
+            {
+                float maxVoice = _voiceDetector.GetMaxVoiceSignal();
+                string voiceLine = "\nVoice:" + maxVoice.ToString("F2");
+                if (focusSensorIdx >= 0)
+                {
+                    float focusVoice = _voiceDetector.GetVoiceSignal(focusSensorIdx);
+                    voiceLine += " focus:" + focusVoice.ToString("F2");
+                }
+                details += voiceLine;
+            }
+
+            // Dream narrative line
+            if (_dreamNarrative != null)
+            {
+                int tone = _dreamNarrative.GetLastTone();
+                if (tone != DreamNarrative.TONE_NONE)
+                {
+                    details += "\nDreamNarr:" + _dreamNarrative.GetToneName(tone);
+                    string narrText = _dreamNarrative.GetLastNarrativeText();
+                    if (narrText.Length > 0)
+                    {
+                        details += " \"" + narrText + "\"";
+                    }
+                }
+            }
+
+            // Idle waypoints line
+            if (_idleWaypoints != null)
+            {
+                details += "\nPatrol:" + _idleWaypoints.GetPatrolStateName();
+                if (_idleWaypoints.IsActive())
+                {
+                    details += " wp:" + _idleWaypoints.GetCurrentWaypointIndex().ToString() +
+                        "/" + _idleWaypoints.GetWaypointCount().ToString();
+                }
+            }
+
+            // Trust visualizer line
+            if (_trustVisualizer != null)
+            {
+                details += "\nTrustViz em:" + _trustVisualizer.GetEmissionIntensity().ToString("F2");
+            }
+
+            // Adaptive personality line
+            if (_adaptivePersonality != null)
+            {
+                details += "\nPersonality S:" + _adaptivePersonality.GetSociability().ToString("F2") +
+                    " C:" + _adaptivePersonality.GetCautiousness().ToString("F2") +
+                    " E:" + _adaptivePersonality.GetExpressiveness().ToString("F2");
             }
 
             _detailsLabel.text = details;

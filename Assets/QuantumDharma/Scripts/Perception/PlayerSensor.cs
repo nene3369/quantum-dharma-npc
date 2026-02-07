@@ -24,6 +24,7 @@ public class PlayerSensor : UdonSharpBehaviour
     [Header("References — Enhanced (optional)")]
     [SerializeField] private HandProximityDetector _handProximityDetector;
     [SerializeField] private PostureDetector _postureDetector;
+    [SerializeField] private VoiceDetector _voiceDetector;
 
     // --- Observed player arrays (fixed-size, max 80 VRChat instance cap) ---
     private const int MAX_PLAYERS = 80;
@@ -287,6 +288,17 @@ public class PlayerSensor : UdonSharpBehaviour
     {
         if (_postureDetector == null) return 1f;
         return _postureDetector.GetHeadHeightRatio(index);
+    }
+
+    // ----------------------------------------------------------------
+    // Voice/engagement accessors (delegate to VoiceDetector)
+    // ----------------------------------------------------------------
+
+    /// <summary>0-1 voice/engagement signal (proxy for speech activity).</summary>
+    public float GetTrackedVoiceSignal(int index)
+    {
+        if (_voiceDetector == null) return 0f;
+        return _voiceDetector.GetVoiceSignal(index);
     }
 
     /// <summary>
