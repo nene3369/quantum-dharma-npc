@@ -18,24 +18,105 @@
 - **Platform:** VRChat (PC + Quest)
 - **License:** MIT
 
+## Architecture
+
+```
+                       ┌─────────────────────┐
+                       │   VRChat Instance    │
+                       │   (Player Events)    │
+                       └──────────┬──────────┘
+                                  │
+                       ┌──────────▼──────────┐
+                       │    PlayerSensor      │
+                       │  (Perception Layer)  │
+                       └──────────┬──────────┘
+                                  │ observations
+            ┌─────────────────────▼─────────────────────┐
+            │          QuantumDharmaManager              │
+            │            (Core Orchestrator)             │
+            │                                           │
+            │  ┌─────────────────────────────────┐      │
+            │  │  Free Energy: F = Σ πᵢ · PEᵢ²  │      │
+            │  └────────────────┬────────────────┘      │
+            │                   │                       │
+            │  ┌────────────────▼────────────────┐      │
+            │  │  State: Silence│Observe│Approach │      │
+            │  │                │Retreat          │      │
+            │  └────────────────┬────────────────┘      │
+            │                   │                       │
+            │  Future:  FreeEnergyCalculator (extract)  │
+            │           BeliefState (memory/posterior)   │
+            │           QuantumDharmaNPC (personality)   │
+            └───────────────────┬───────────────────────┘
+                 ┌──────────────┼──────────────┐
+                 │              │              │
+       ┌─────────▼──┐  ┌───────▼──────┐  ┌───▼────────────┐
+       │  NPCMotor  │  │   Markov     │  │  UI Layer      │
+       │  (Action)  │  │   Blanket    │  │                │
+       │            │  │  (Boundary)  │  │ DebugOverlay   │
+       │  walk to   │  │              │  │ FreeEnergy     │
+       │  walk away │  │  trust →     │  │  Visualizer    │
+       │  face      │  │  radius      │  │                │
+       │  stop      │  │  expand /    │  │                │
+       │            │  │  contract    │  │                │
+       └────────────┘  └──────────────┘  └────────────────┘
+```
+
+### Data Flow
+
+```
+PlayerSensor ──observations──→ QuantumDharmaManager ──motor commands──→ NPCMotor
+                               QuantumDharmaManager ──trust signals──→ MarkovBlanket
+                               QuantumDharmaManager ──state/FE/PE───→ DebugOverlay
+                               QuantumDharmaManager ──normalized PE──→ FreeEnergyVisualizer
+MarkovBlanket ──radius────────→ PlayerSensor (detection range)
+MarkovBlanket ──radius────────→ FreeEnergyVisualizer (ring size)
+```
+
+### Component Inventory
+
+| Script | Layer | Sync Mode | Role |
+|---|---|---|---|
+| `PlayerSensor.cs` | Perception | None | Polls VRCPlayerApi, tracks player position/velocity/gaze |
+| `MarkovBlanket.cs` | Perception | None | Dynamic trust boundary, editor gizmo |
+| `QuantumDharmaManager.cs` | Core | None | Free energy calculation, state machine, orchestration |
+| `NPCMotor.cs` | Action | Continuous | Owner-authoritative movement, synced position/rotation |
+| `DebugOverlay.cs` | UI | None | World-space debug panel, billboards toward player |
+| `FreeEnergyVisualizer.cs` | UI | None | LineRenderer ring driven by prediction error |
+
+### Planned Components (not yet implemented)
+
+| Script | Layer | Role |
+|---|---|---|
+| `FreeEnergyCalculator.cs` | Core | Extracted F computation with richer generative model |
+| `BeliefState.cs` | Core | Persistent posterior estimates of player intentions |
+| `QuantumDharmaNPC.cs` | Core | Personality layer: speech, animation, emotion |
+
 ## Project Structure
 
 ```
 Assets/
 ├── QuantumDharma/
-│   ├── Scripts/           # UdonSharp behaviours
-│   │   ├── Core/          # Free energy engine, belief state, model update
-│   │   ├── Perception/    # Sensory input processing (player proximity, gaze, events)
-│   │   ├── Action/        # Action selection and motor output (animation, speech)
-│   │   └── UI/            # Debug overlays, world-space UI panels
-│   ├── Prefabs/           # NPC prefab, interaction zones, triggers
-│   ├── Animations/        # Animator controllers and clips
-│   ├── Materials/         # NPC materials and shaders
-│   └── Scenes/            # Test world scenes
-├── UdonSharp/             # UdonSharp compiler (imported via VCC)
-├── VRChat SDK/            # VRChat Worlds SDK (imported via VCC)
-Packages/                  # Unity Package Manager dependencies
-ProjectSettings/           # Unity project settings
+│   ├── Scripts/
+│   │   ├── Core/
+│   │   │   └── QuantumDharmaManager.cs
+│   │   ├── Perception/
+│   │   │   ├── PlayerSensor.cs
+│   │   │   └── MarkovBlanket.cs
+│   │   ├── Action/
+│   │   │   └── NPCMotor.cs
+│   │   └── UI/
+│   │       ├── DebugOverlay.cs
+│   │       └── FreeEnergyVisualizer.cs
+│   ├── Prefabs/
+│   │   └── README_SETUP.md          # Inspector wiring guide
+│   ├── Animations/                   # Animator controllers and clips
+│   ├── Materials/                    # NPC materials and shaders
+│   └── Scenes/                       # Test world scenes
+├── UdonSharp/                        # UdonSharp compiler (imported via VCC)
+├── VRChat SDK/                       # VRChat Worlds SDK (imported via VCC)
+Packages/                             # Unity Package Manager dependencies
+ProjectSettings/                      # Unity project settings
 ```
 
 ## UdonSharp Constraints
