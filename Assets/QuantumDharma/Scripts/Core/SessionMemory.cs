@@ -386,4 +386,64 @@ public class SessionMemory : UdonSharpBehaviour
         }
         return total;
     }
+
+    // ================================================================
+    // Dream consolidation — offline belief update
+    //
+    // Called periodically by DreamState while the NPC is dreaming.
+    // With no sensory input, the generative model drifts toward its
+    // priors: trust normalizes, friends are reinforced, and negative
+    // impressions soften (forgiveness through stillness).
+    // ================================================================
+
+    /// <summary>
+    /// Offline belief consolidation during dream state.
+    /// Iterates all remembered players and applies:
+    ///   1. Trust normalization: extreme values regress toward target
+    ///   2. Friend reinforcement: kind memories are strengthened
+    ///   3. Forgiveness: negative trust softens toward zero
+    /// </summary>
+    public void DreamConsolidate(float trustTarget, float trustRate,
+                                  float kindnessBoost, float forgiveRate)
+    {
+        if (!Networking.IsOwner(gameObject)) return;
+
+        bool changed = false;
+
+        for (int i = 0; i < MAX_MEMORY; i++)
+        {
+            if (!_memSlotActive[i]) continue;
+
+            float trust = _memTrust[i];
+
+            // 1. Trust normalization: extreme values regress toward target
+            //    Both very positive and very negative trust drift inward
+            if (Mathf.Abs(trust) > Mathf.Abs(trustTarget))
+            {
+                _memTrust[i] = Mathf.MoveTowards(trust, trustTarget, trustRate);
+                changed = true;
+            }
+
+            // 2. Friend reinforcement: strengthen kind memories
+            //    During dream, the NPC "relives" positive experiences
+            if (_memIsFriend[i])
+            {
+                _memKindness[i] += kindnessBoost;
+                changed = true;
+            }
+
+            // 3. Forgiveness: soften negative trust toward zero
+            //    The NPC lets go of fear during meditation
+            if (_memTrust[i] < 0f)
+            {
+                _memTrust[i] = Mathf.MoveTowards(_memTrust[i], 0f, forgiveRate);
+                changed = true;
+            }
+        }
+
+        if (changed)
+        {
+            RequestSerialization();
+        }
+    }
 }

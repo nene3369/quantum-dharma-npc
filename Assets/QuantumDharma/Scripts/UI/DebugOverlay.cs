@@ -45,6 +45,10 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private LookAtController _lookAtController;
     [SerializeField] private TouchSensor _touchSensor;
     [SerializeField] private GiftReceiver _giftReceiver;
+    [SerializeField] private DreamState _dreamState;
+    [SerializeField] private MirrorBehavior _mirrorBehavior;
+    [SerializeField] private ContextualUtterance _contextualUtterance;
+    [SerializeField] private ProximityAudio _proximityAudio;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -145,23 +149,37 @@ public class DebugOverlay : UdonSharpBehaviour
         float freeEnergy = _manager.GetFreeEnergy();
         string stateName = _manager.GetNPCStateName();
 
-        // State label — include emotion if personality layer available
+        // State label — include emotion and dream state
         if (_stateLabel != null)
         {
+            string label = stateName;
             if (_npc != null)
             {
-                _stateLabel.text = stateName + " | " + _npc.GetEmotionName();
+                label += " | " + _npc.GetEmotionName();
+            }
+            if (_dreamState != null && _dreamState.IsInDreamCycle())
+            {
+                label = _dreamState.GetPhaseName();
+                if (_dreamState.IsDreaming())
+                {
+                    label += " " + _dreamState.GetDreamDuration().ToString("F0") + "s";
+                }
+            }
+            _stateLabel.text = label;
+        }
+
+        // State background color — override during dream cycle
+        if (_stateBackground != null)
+        {
+            if (_dreamState != null && _dreamState.IsInDreamCycle())
+            {
+                // Purple-ish for dream states
+                _stateBackground.color = new Color(0.4f, 0.3f, 0.7f, 0.85f);
             }
             else
             {
-                _stateLabel.text = stateName;
+                _stateBackground.color = GetStateColor(state);
             }
-        }
-
-        // State background color
-        if (_stateBackground != null)
-        {
-            _stateBackground.color = GetStateColor(state);
         }
 
         // Free energy with trend indicator
@@ -396,6 +414,54 @@ public class DebugOverlay : UdonSharpBehaviour
                     giftLine += " [New!]";
                 }
                 details += giftLine;
+            }
+
+            // Dream state line
+            if (_dreamState != null)
+            {
+                string dreamLine = "\nDream:" + _dreamState.GetPhaseName();
+                if (_dreamState.IsDreaming())
+                {
+                    dreamLine += " " + _dreamState.GetDreamDuration().ToString("F0") + "s";
+                }
+                else if (_dreamState.IsWaking())
+                {
+                    dreamLine += " wake:" + (_dreamState.GetWakeProgress() * 100f).ToString("F0") + "%";
+                }
+                details += dreamLine;
+            }
+
+            // Mirror behavior line
+            if (_mirrorBehavior != null)
+            {
+                string mirrorLine = "\nMirror:";
+                if (_mirrorBehavior.IsActive())
+                {
+                    mirrorLine += "ON drop:" + _mirrorBehavior.GetCrouchDrop().ToString("F2") +
+                        "m lean:" + _mirrorBehavior.GetLeanAngle().ToString("F1") + "°";
+                }
+                else
+                {
+                    mirrorLine += "OFF";
+                }
+                details += mirrorLine;
+            }
+
+            // Contextual utterance line
+            if (_contextualUtterance != null)
+            {
+                int lastSit = _contextualUtterance.GetLastSituation();
+                if (lastSit != ContextualUtterance.SIT_NONE)
+                {
+                    details += "\nContext:" + _contextualUtterance.GetSituationName(lastSit);
+                }
+            }
+
+            // Proximity audio line
+            if (_proximityAudio != null)
+            {
+                details += "\nAudio vol:" + _proximityAudio.GetCurrentVolume().ToString("F2") +
+                    " pitch:" + _proximityAudio.GetCurrentPitch().ToString("F2");
             }
 
             _detailsLabel.text = details;

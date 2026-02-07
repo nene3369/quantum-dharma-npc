@@ -25,6 +25,10 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── PostureDetector           ← Empty GameObject (optional)
 ├── TouchSensor               ← Empty GO + SphereCollider (trigger) (optional)
 ├── GiftReceiver              ← Empty GameObject (optional)
+├── DreamState                ← Empty GameObject (optional)
+├── MirrorBehavior            ← Empty GameObject (optional)
+├── ContextualUtterance       ← Empty GameObject (optional)
+├── ProximityAudio            ← Empty GO + AudioSource (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -142,6 +146,90 @@ No special components needed on the root. Position this where you want the NPC t
    - Add a **Rigidbody** (not kinematic) and **Collider** to each pickup
    - Wire each pickup's GameObject into the Gift Pickup Objects array
 
+### 2g. DreamState (optional)
+
+1. Create an empty child GameObject under the NPC root named `DreamState`
+2. Add **UdonBehaviour**
+3. Attach script: `DreamState.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **Dream Particles:** (optional) drag a ParticleSystem for dream visualization
+   - **Dream Emission Rate:** 3 (particles/sec while dreaming)
+   - **Dream Color:** translucent purple (0.5, 0.4, 0.8, 0.4)
+   - **Sleep Delay:** 5 (seconds without players before entering drowsy)
+   - **Drowsy Duration:** 3 (transition time drowsy → dreaming)
+   - **Wake Duration:** 1.5 (disorientation time on player return)
+   - **Consolidation Interval:** 2 (seconds between belief consolidation ticks)
+   - **Trust Normalize Target:** 0.3 (extreme trust regresses toward this)
+   - **Trust Normalize Rate:** 0.01 (per consolidation tick)
+   - **Friend Kindness Boost:** 0.1 (kindness reinforcement per tick)
+   - **Forgive Rate:** 0.02 (negative trust softening per tick)
+5. **Dream particles setup:**
+   - Create a child ParticleSystem on DreamState or the NPC root
+   - Set **Start Speed** low (0.1–0.3) and **Start Lifetime** long (3–5s)
+   - Use a soft, translucent material (additive or alpha blend)
+   - The script controls emission rate and color at runtime
+
+### 2g-i. MirrorBehavior (optional)
+
+1. Create an empty child GameObject under the NPC root named `MirrorBehavior`
+2. Add **UdonBehaviour**
+3. Attach script: `MirrorBehavior.cs`
+4. Configure in Inspector:
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Posture Detector:** drag the PostureDetector GameObject
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Model Transform:** drag the Model GameObject (NPC mesh root)
+   - **Animator:** (optional) drag the Animator on the Model
+   - **Mirror Trust Threshold:** 0.5 (minimum trust to activate)
+   - **Max Crouch Drop:** 0.6 (meters of Y drop for full mirror)
+   - **Max Lean Angle:** 10 (degrees of forward tilt)
+   - **Mirror Smooth Speed:** 3 (interpolation speed)
+5. **Animator parameters (optional):**
+   - Create float parameters: `MirrorCrouch` (0-1) and `MirrorLean` (0-1)
+   - These can drive additional animation blend for crouching/leaning
+
+### 2g-ii. ContextualUtterance (optional)
+
+1. Create an empty child GameObject under the NPC root named `ContextualUtterance`
+2. Add **UdonBehaviour**
+3. Attach script: `ContextualUtterance.cs`
+4. Configure in Inspector:
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **Dream State:** (optional) drag the DreamState GameObject
+   - **Contextual Cooldown:** 12 (seconds between contextual utterances)
+   - **Long Presence Threshold:** 60 (seconds of co-presence for "you stayed" trigger)
+   - **Display Duration:** 5 (seconds text stays visible)
+
+### 2g-iii. ProximityAudio (optional)
+
+1. Create an empty child GameObject under the NPC root named `ProximityAudio`
+2. Add an **AudioSource** component:
+   - **Spatial Blend:** 1.0 (full 3D)
+   - **Loop:** true
+   - **Play On Awake:** false (script controls playback)
+   - Assign a looping ambient clip (humming, breathing, soft tone)
+3. Add **UdonBehaviour**
+4. Attach script: `ProximityAudio.cs`
+5. Configure in Inspector:
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Dream State:** (optional) drag the DreamState GameObject
+   - **Audio Source:** drag this GameObject's AudioSource component
+   - **Volume (per emotion):** Calm 0.08, Curious 0.12, Warm 0.15, Anxious 0.25, Grateful 0.18
+   - **Pitch (per emotion):** Calm 1.0, Curious 1.08, Warm 0.92, Anxious 1.35, Grateful 0.88
+   - **Volume Dream:** 0.04, **Pitch Dream:** 0.7
+   - **Intimate Distance:** 1.5 (full volume range)
+   - **Max Audible Distance:** 5.0 (zero volume beyond this)
+6. **Audio clip suggestions:**
+   - A soft, loopable ambient sound (2–10 seconds)
+   - Gentle humming, slow breathing, or tonal drone
+   - Pitch/volume modulation by the script creates emotional variation
+
 ### 2h. LookAtController (optional)
 
 1. Create an empty child GameObject under the NPC root named `LookAtController`
@@ -221,6 +309,10 @@ No special components needed on the root. Position this where you want the NPC t
    - **Gift Receiver:** (optional) drag GiftReceiver
    - **Look At Controller:** (optional) drag LookAtController
    - **Emotion Animator:** (optional) drag EmotionAnimator
+   - **Mirror Behavior:** (optional) drag MirrorBehavior
+   - **Proximity Audio:** (optional) drag ProximityAudio
+   - **Dream State:** (optional) drag DreamState
+   - **Contextual Utterance:** (optional) drag ContextualUtterance
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -265,6 +357,10 @@ No special components needed on the root. Position this where you want the NPC t
    - **State Background:** drag the Panel's Image component
    - **Touch Sensor:** (optional) drag TouchSensor
    - **Gift Receiver:** (optional) drag GiftReceiver
+   - **Dream State:** (optional) drag DreamState
+   - **Mirror Behavior:** (optional) drag MirrorBehavior
+   - **Contextual Utterance:** (optional) drag ContextualUtterance
+   - **Proximity Audio:** (optional) drag ProximityAudio
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -322,7 +418,28 @@ GiftReceiver
   └─→ MarkovBlanket            (reads trust for context)
 
 SessionMemory
-  (no outgoing references — called by QuantumDharmaManager)
+  (no outgoing references — called by QuantumDharmaManager and DreamState)
+
+DreamState
+  ├─→ PlayerSensor             (reads tracked player count)
+  └─→ SessionMemory            (calls DreamConsolidate for offline belief update)
+
+MirrorBehavior
+  ├─→ QuantumDharmaManager     (reads focus player + focus slot)
+  ├─→ PostureDetector          (reads crouch ratio for mirroring)
+  ├─→ PlayerSensor             (resolves focus player sensor index)
+  └─→ BeliefState              (reads per-player trust for activation gating)
+
+ContextualUtterance
+  ├─→ QuantumDharmaNPC         (calls ForceDisplayText for contextual speech)
+  ├─→ QuantumDharmaManager     (reads focus player + focus distance)
+  ├─→ SessionMemory            (reads interaction time for long-presence detection)
+  └─→ DreamState               (reads dream cycle state)
+
+ProximityAudio
+  ├─→ QuantumDharmaNPC         (reads current emotion)
+  ├─→ QuantumDharmaManager     (reads focus distance)
+  └─→ DreamState               (optional: reads dream state for audio modulation)
 
 QuantumDharmaManager
   ├─→ PlayerSensor             (reads player observations + hand/crouch)
@@ -332,7 +449,11 @@ QuantumDharmaManager
   ├─→ TouchSensor              (optional: reads touch events + signals)
   ├─→ GiftReceiver             (optional: reads gift events + signals)
   ├─→ LookAtController         (optional: referenced for wiring)
-  └─→ EmotionAnimator          (optional: referenced for wiring)
+  ├─→ EmotionAnimator          (optional: referenced for wiring)
+  ├─→ DreamState               (optional: reads dream cycle, consumes wake events)
+  ├─→ ContextualUtterance      (optional: notifies on player registration + dream wake)
+  ├─→ MirrorBehavior           (optional: referenced for wiring)
+  └─→ ProximityAudio           (optional: referenced for wiring)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -347,7 +468,11 @@ DebugOverlay
   ├─→ SessionMemory            (optional: reads memory count + friend count)
   ├─→ LookAtController         (optional: reads gaze weight)
   ├─→ TouchSensor              (optional: reads touch state + zones)
-  └─→ GiftReceiver             (optional: reads gift count + signal)
+  ├─→ GiftReceiver             (optional: reads gift count + signal)
+  ├─→ DreamState               (optional: reads dream phase + duration)
+  ├─→ MirrorBehavior           (optional: reads mirror state + intensity)
+  ├─→ ContextualUtterance      (optional: reads last situation type)
+  └─→ ProximityAudio           (optional: reads audio volume + pitch)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -389,6 +514,25 @@ FreeEnergyVisualizer
 - [ ] Check "Touch" and "Gifts" lines in DebugOverlay
 - [ ] Walk away and return — verify gift count is restored from session memory
 - [ ] Build & Test with 2 clients to verify network sync on NPCMotor and SessionMemory
+- [ ] Walk away from NPC and wait 5+ seconds — verify NPC enters Drowsy → Dreaming phases
+- [ ] While NPC is dreaming — verify dream particles appear with slow pulsing
+- [ ] Return to dreaming NPC — verify Waking phase with ~1.5s disorientation
+- [ ] After wake — verify contextual utterance: "...ん?" or "Waking up..."
+- [ ] Return as a remembered player — verify "また会えた" or "We meet again"
+- [ ] Return as a friend — verify "おかえり" or "Welcome back"
+- [ ] First meeting with NPC — verify "はじめまして" or "Hello"
+- [ ] Stay near NPC for 60+ seconds — verify long presence utterance: "ずっといてくれる" or "You stayed"
+- [ ] Dream consolidation: leave NPC dreaming for a while → verify trust normalization and forgiveness in session memory
+- [ ] Check "Dream:" line in DebugOverlay showing phase + duration
+- [ ] Build trust above 0.5 and crouch near NPC — verify MirrorBehavior activates (NPC lowers)
+- [ ] Stand up — verify NPC mirror posture smoothly returns to normal
+- [ ] At low trust (<0.5) — verify MirrorBehavior stays OFF
+- [ ] Check "Mirror:" line in DebugOverlay showing ON/OFF and drop/lean values
+- [ ] Stand very close to NPC in calm state — verify soft ambient audio (humming)
+- [ ] Trigger anxious state — verify pitch increases (faster breathing sound)
+- [ ] Walk beyond 5m — verify audio fades to silence
+- [ ] While NPC dreams — verify very quiet, slow-pitch dream audio
+- [ ] Check "Audio:" line in DebugOverlay showing volume + pitch
 
 ---
 
@@ -399,3 +543,6 @@ FreeEnergyVisualizer
 - Keep **PlayerSensor > Poll Interval** at 0.25s or higher
 - The LineRenderer material should use `VRChat/Mobile/Particles/Additive` or similar mobile shader
 - Keep DebugCanvas text count minimal — each Text component has draw call cost
+- DreamState particles: reduce emission rate (1–2) on Quest; use mobile-friendly particle material
+- ProximityAudio: consider disabling on Quest if AudioSource performance is a concern
+- MirrorBehavior: minimal performance impact (runs per frame but only does Lerp + transform set)

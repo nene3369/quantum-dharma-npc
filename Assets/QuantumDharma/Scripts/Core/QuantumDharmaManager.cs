@@ -51,6 +51,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [Header("Components — Action (optional)")]
     [SerializeField] private LookAtController _lookAtController;
     [SerializeField] private EmotionAnimator _emotionAnimator;
+    [SerializeField] private MirrorBehavior _mirrorBehavior;
+    [SerializeField] private ProximityAudio _proximityAudio;
+
+    [Header("Components — Dream & Context (optional)")]
+    [SerializeField] private DreamState _dreamState;
+    [SerializeField] private ContextualUtterance _contextualUtterance;
 
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
@@ -148,6 +154,40 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
     private void DecisionTick()
     {
+        // Dream state integration:
+        // When dreaming, the NPC skips normal perception/action loops.
+        // Belief consolidation is handled by DreamState itself.
+        if (_dreamState != null && _dreamState.IsInDreamCycle())
+        {
+            // Still read observations to detect player arrival
+            ReadObservations();
+
+            // Consume dream wake event → notify ContextualUtterance
+            if (_dreamState.ConsumePendingWake())
+            {
+                int wakerId = _dreamState.GetWakePlayerId();
+                if (_contextualUtterance != null && wakerId >= 0)
+                {
+                    bool isRemembered = _sessionMemory != null && _sessionMemory.IsRemembered(wakerId);
+                    bool isFriend = _sessionMemory != null && _sessionMemory.IsRememberedFriend(wakerId);
+                    _contextualUtterance.NotifyDreamWake(wakerId, isRemembered, isFriend);
+                }
+            }
+
+            // During drowsy/waking: allow motor to face target but skip full loop
+            if (_dreamState.IsWaking() && _focusPlayer != null && _focusPlayer.IsValid())
+            {
+                if (_npcMotor != null) _npcMotor.FacePlayer(_focusPlayer);
+            }
+            else if (_dreamState.IsDreaming() || _dreamState.IsDrowsy())
+            {
+                if (_npcMotor != null && !_npcMotor.IsIdle()) _npcMotor.Stop();
+                _npcState = NPC_STATE_SILENCE;
+            }
+
+            return;
+        }
+
         // Step 1: Read observations and manage slot registration
         ReadObservations();
         ManageSlotRegistration();
@@ -311,7 +351,27 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                             int savedGifts = _sessionMemory.GetMemoryGiftCount(memSlot);
                             _giftReceiver.RestoreGiftCount(id, savedGifts);
                         }
+
+                        // Notify ContextualUtterance: re-encounter or friend return
+                        if (_contextualUtterance != null)
+                        {
+                            bool isFriend = _sessionMemory.GetMemoryIsFriend(memSlot);
+                            _contextualUtterance.NotifyPlayerRegistered(id, true, isFriend);
+                        }
                     }
+                    else
+                    {
+                        // No memory entry → first meeting
+                        if (_contextualUtterance != null)
+                        {
+                            _contextualUtterance.NotifyPlayerRegistered(id, false, false);
+                        }
+                    }
+                }
+                else if (slot >= 0 && _contextualUtterance != null)
+                {
+                    // No SessionMemory wired → treat as first meeting
+                    _contextualUtterance.NotifyPlayerRegistered(id, false, false);
                 }
             }
         }
@@ -853,5 +913,25 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             case NPC_STATE_RETREAT:  return "Retreat";
             default:                 return "Unknown";
         }
+    }
+
+    public DreamState GetDreamState()
+    {
+        return _dreamState;
+    }
+
+    public ContextualUtterance GetContextualUtterance()
+    {
+        return _contextualUtterance;
+    }
+
+    public MirrorBehavior GetMirrorBehavior()
+    {
+        return _mirrorBehavior;
+    }
+
+    public ProximityAudio GetProximityAudio()
+    {
+        return _proximityAudio;
     }
 }

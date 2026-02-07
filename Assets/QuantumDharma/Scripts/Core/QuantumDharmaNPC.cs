@@ -562,6 +562,34 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     }
 
     // ================================================================
+    // External text injection (used by ContextualUtterance)
+    // ================================================================
+
+    /// <summary>
+    /// Force display of arbitrary text, bypassing the normal utterance
+    /// vocabulary and cooldown system. Used by ContextualUtterance for
+    /// situation-aware speech that doesn't come from the built-in vocabulary.
+    /// </summary>
+    public void ForceDisplayText(string text, float duration)
+    {
+        if (!Networking.IsOwner(gameObject)) return;
+        if (text.Length == 0) return;
+
+        if (_utteranceText != null)
+        {
+            _utteranceText.text = text;
+            _utteranceText.gameObject.SetActive(true);
+        }
+        _utteranceDisplayTimer = duration > 0f ? duration : _utteranceDuration;
+        _utteranceTimer = 0f; // reset cooldown
+
+        // Sync: use index -2 to signal "external text" to remote clients
+        // Remote clients won't decode this, but the text will clear on timer
+        _syncedUtteranceIndex = -2;
+        RequestSerialization();
+    }
+
+    // ================================================================
     // Public read API
     // ================================================================
 
