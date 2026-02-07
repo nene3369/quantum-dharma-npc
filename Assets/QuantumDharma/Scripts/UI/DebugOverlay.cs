@@ -43,6 +43,8 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private PostureDetector _postureDetector;
     [SerializeField] private SessionMemory _sessionMemory;
     [SerializeField] private LookAtController _lookAtController;
+    [SerializeField] private TouchSensor _touchSensor;
+    [SerializeField] private GiftReceiver _giftReceiver;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -355,6 +357,45 @@ public class DebugOverlay : UdonSharpBehaviour
                     gazeLine += " [Glance]";
                 }
                 details += gazeLine;
+            }
+
+            // Touch line
+            if (_touchSensor != null)
+            {
+                string touchLine = "\nTouch:";
+                if (_touchSensor.IsTouched())
+                {
+                    touchLine += _touchSensor.GetActiveTouchCount().ToString();
+                    int lastZone = _touchSensor.GetLastTouchZone();
+                    touchLine += " [" + _touchSensor.GetZoneName(lastZone) + "]";
+                    touchLine += " sig:" + _touchSensor.GetTouchSignal().ToString("F2");
+
+                    // Show contact duration for focus player
+                    VRCPlayerApi fp = _manager.GetFocusPlayer();
+                    if (fp != null && fp.IsValid())
+                    {
+                        float dur = _touchSensor.GetPlayerContactDuration(fp.playerId);
+                        if (dur > 0f) touchLine += " " + dur.ToString("F1") + "s";
+                    }
+                }
+                else
+                {
+                    touchLine += "-- sig:" + _touchSensor.GetTouchSignal().ToString("F2");
+                }
+                details += touchLine;
+            }
+
+            // Gift line
+            if (_giftReceiver != null)
+            {
+                int totalGifts = _giftReceiver.GetTotalGiftCount();
+                string giftLine = "\nGifts:" + totalGifts.ToString();
+                giftLine += " sig:" + _giftReceiver.GetGiftSignal().ToString("F2");
+                if (_giftReceiver.GetTimeSinceLastGift() < 5f)
+                {
+                    giftLine += " [New!]";
+                }
+                details += giftLine;
             }
 
             _detailsLabel.text = details;

@@ -23,6 +23,8 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── PlayerSensor              ← Empty GameObject
 ├── HandProximityDetector     ← Empty GameObject (optional)
 ├── PostureDetector           ← Empty GameObject (optional)
+├── TouchSensor               ← Empty GO + SphereCollider (trigger) (optional)
+├── GiftReceiver              ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -93,7 +95,54 @@ No special components needed on the root. Position this where you want the NPC t
    - **Crouch Kindness Multiplier:** 1.5 (trust boost when crouching)
    - **Poll Interval:** 0.25
 
-### 2f. LookAtController (optional)
+### 2f. TouchSensor (optional)
+
+1. Create an empty child GameObject under the NPC root named `TouchSensor`
+2. Add a **SphereCollider**:
+   - **Is Trigger:** true
+   - **Radius:** 1.0 (personal space radius in meters)
+3. Add a **Rigidbody**:
+   - **Is Kinematic:** true
+   - **Use Gravity:** false
+4. Add **UdonBehaviour**
+5. Attach script: `TouchSensor.cs`
+6. Configure in Inspector:
+   - **Markov Blanket:** drag the MarkovBlanket GameObject
+   - **NPC Transform:** drag the QuantumDharmaNPC root GameObject
+   - **Head Zone Height:** 1.5 (height above NPC pivot for head zone)
+   - **Back Zone Threshold:** -0.3 (dot product below which = behind NPC)
+   - **Comfort Trust Threshold:** 0.3 (trust level above which touch is welcomed)
+   - **Comfort Trust Boost:** 0.15 (trust gain per sec for head touch)
+   - **Greeting Trust Boost:** 0.08 (trust gain per sec for hand touch)
+   - **Startle Trust Penalty:** -0.1 (trust loss for low-trust touch)
+   - **Push Trust Penalty:** -0.15 (trust loss for back push)
+   - **Touch Cooldown:** 2.0 (seconds between events from same player)
+   - **Prolonged Threshold:** 1.5 (seconds before prolonged effect)
+   - **Prolonged Multiplier:** 2.0
+
+### 2f-i. GiftReceiver (optional)
+
+1. Create an empty child GameObject under the NPC root named `GiftReceiver`
+2. Add **UdonBehaviour**
+3. Attach script: `GiftReceiver.cs`
+4. Configure in Inspector:
+   - **NPC Transform:** drag the QuantumDharmaNPC root GameObject
+   - **Markov Blanket:** drag the MarkovBlanket GameObject
+   - **Gift Pickup Objects:** drag all pickup GameObjects that can be offered as gifts
+   - **Gift Radius:** 2.5 (max distance for dropped pickup to count as gift)
+   - **Poll Interval:** 0.5 (seconds between pickup state checks)
+   - **Gift Trust Boost:** 0.25 (base trust gain per gift)
+   - **First Gift Bonus:** 0.20 (extra trust for first gift from a player)
+   - **Habituation Factor:** 0.6 (diminishing returns multiplier)
+   - **Min Gift Boost:** 0.03 (minimum trust even after full habituation)
+   - **Gift Burst Particles:** (optional) drag a ParticleSystem for burst effect
+   - **Burst Count:** 30
+5. **Gift pickup setup:**
+   - Each gift-eligible object needs a **VRC_Pickup** component
+   - Add a **Rigidbody** (not kinematic) and **Collider** to each pickup
+   - Wire each pickup's GameObject into the Gift Pickup Objects array
+
+### 2h. LookAtController (optional)
 
 1. Create an empty child GameObject under the NPC root named `LookAtController`
 2. Add **UdonBehaviour**
@@ -109,7 +158,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Requires a humanoid rig or Animator with IK support
    - Set `Blink` parameter name to match your blend shape or animation parameter
 
-### 2f-ii. EmotionAnimator (optional)
+### 2h-i. EmotionAnimator (optional)
 
 1. Create an empty child GameObject under the NPC root named `EmotionAnimator`
 2. Add **UdonBehaviour**
@@ -126,7 +175,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Create system parameters: `BreathAmplitude`, `NpcState`, `FreeEnergy`, `Trust`, `MotorSpeed`
    - Use a 2D or 1D Blend Tree to mix posture/gesture clips based on these parameters
 
-### 2f-iii. SessionMemory (optional)
+### 2h-ii. SessionMemory (optional)
 
 1. Create an empty child GameObject under the NPC root named `SessionMemory`
 2. Add **UdonBehaviour**
@@ -140,7 +189,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Set **Sync Mode** on the UdonBehaviour to **Manual**
    - SessionMemory uses `[UdonSynced]` arrays so all players see consistent NPC memory
 
-### 2g. NPCMotor
+### 2i. NPCMotor
 
 1. Add **UdonBehaviour**
 2. Attach script: `NPCMotor.cs`
@@ -155,7 +204,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Set **Sync Mode** on the UdonBehaviour to **Continuous**
    - The NPCMotor uses `[UdonSynced]` variables for position/rotation
 
-### 2h. QuantumDharmaManager
+### 2j. QuantumDharmaManager
 
 1. Add **UdonBehaviour**
 2. Attach script: `QuantumDharmaManager.cs`
@@ -168,6 +217,8 @@ No special components needed on the root. Position this where you want the NPC t
    - **Belief State:** (optional) drag BeliefState
    - **NPC:** (optional) drag QuantumDharmaNPC
    - **Session Memory:** (optional) drag SessionMemory
+   - **Touch Sensor:** (optional) drag TouchSensor
+   - **Gift Receiver:** (optional) drag GiftReceiver
    - **Look At Controller:** (optional) drag LookAtController
    - **Emotion Animator:** (optional) drag EmotionAnimator
 5. Tune thresholds (defaults are good starting points):
@@ -176,7 +227,7 @@ No special components needed on the root. Position this where you want the NPC t
    - **Retreat Threshold:** 6.0
    - **Action Cost Threshold:** 0.5
 
-### 2i. FreeEnergyVisualizer
+### 2k. FreeEnergyVisualizer
 
 1. Add a **LineRenderer** component
 2. Add **UdonBehaviour**
@@ -191,7 +242,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Leave position count at 0 — the script manages it at runtime
 6. Set **Visualizer Enabled** to true (or false to disable for Quest)
 
-### 2j. DebugCanvas
+### 2l. DebugCanvas
 
 1. Add **Canvas** component
    - **Render Mode:** World Space
@@ -212,6 +263,8 @@ No special components needed on the root. Position this where you want the NPC t
    - **Panel Root:** drag the DebugPanel GameObject
    - **State Label / FreeEnergy Label / Trust Label / Radius Label / Details Label:** drag each Text
    - **State Background:** drag the Panel's Image component
+   - **Touch Sensor:** (optional) drag TouchSensor
+   - **Gift Receiver:** (optional) drag GiftReceiver
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -224,6 +277,8 @@ No special components needed on the root. Position this where you want the NPC t
 | **VRC Object Sync** | NPCMotor GameObject | Syncs NPC position/rotation across network |
 | **UdonBehaviour** | Each script GameObject | Runs UdonSharp scripts |
 | **Box Collider** (trigger) | NPC root or DebugPanel | Enables VRChat Interact for debug toggle |
+| **SphereCollider** (trigger) | TouchSensor GameObject | Detects player body entry for touch events |
+| **VRC_Pickup** | Each gift pickup object | Enables grab/drop for gift detection |
 
 **Note:** VRC Object Sync requires that the object has a Rigidbody. Add a **Rigidbody** with:
 - **Is Kinematic:** true
@@ -258,6 +313,14 @@ EmotionAnimator
   ├─→ MarkovBlanket            (optional: reads trust)
   └─→ NPCMotor                 (optional: reads motor speed)
 
+TouchSensor
+  ├─→ MarkovBlanket            (reads trust for response modulation)
+  └─→ NPC Transform            (reads NPC position + forward for zone classification)
+
+GiftReceiver
+  ├─→ NPC Transform            (reads NPC position for distance check)
+  └─→ MarkovBlanket            (reads trust for context)
+
 SessionMemory
   (no outgoing references — called by QuantumDharmaManager)
 
@@ -266,6 +329,8 @@ QuantumDharmaManager
   ├─→ MarkovBlanket            (reads trust, sends trust adjustments)
   ├─→ NPCMotor                 (issues movement commands)
   ├─→ SessionMemory            (optional: save/restore player relationships)
+  ├─→ TouchSensor              (optional: reads touch events + signals)
+  ├─→ GiftReceiver             (optional: reads gift events + signals)
   ├─→ LookAtController         (optional: referenced for wiring)
   └─→ EmotionAnimator          (optional: referenced for wiring)
 
@@ -280,7 +345,9 @@ DebugOverlay
   ├─→ HandProximityDetector    (optional: reads hand proximity data)
   ├─→ PostureDetector          (optional: reads posture data)
   ├─→ SessionMemory            (optional: reads memory count + friend count)
-  └─→ LookAtController         (optional: reads gaze weight)
+  ├─→ LookAtController         (optional: reads gaze weight)
+  ├─→ TouchSensor              (optional: reads touch state + zones)
+  └─→ GiftReceiver             (optional: reads gift count + signal)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -308,6 +375,19 @@ FreeEnergyVisualizer
 - [ ] Verify emotion blend weights crossfade smoothly in Animator
 - [ ] Walk away and return — verify trust/kindness are restored from session memory
 - [ ] Check "Mem" line in DebugOverlay shows memory count and friend status
+- [ ] Walk into NPC's touch trigger (front) — verify hand zone detection + trust boost at high trust
+- [ ] Walk into NPC's touch trigger at low trust — verify startle → brief Retreat
+- [ ] Approach NPC from behind — verify back zone detection + trust penalty
+- [ ] Reach hand above NPC head — verify head zone detection + comfort trust boost
+- [ ] Stay in touch trigger > 1.5s — verify prolonged contact effect (escalating trust delta)
+- [ ] Check touch cooldown: exit and re-enter quickly — verify no duplicate events
+- [ ] Pick up a gift object, carry it to NPC, drop it — verify gift detection + trust boost
+- [ ] First gift from a new player — verify outsized trust impact (surprise bonus)
+- [ ] Drop a second gift — verify diminishing returns (habituation)
+- [ ] On gift receive — verify NPC says "ありがとう" / "Thank you" (Grateful utterance)
+- [ ] On gift receive — verify particle burst visual
+- [ ] Check "Touch" and "Gifts" lines in DebugOverlay
+- [ ] Walk away and return — verify gift count is restored from session memory
 - [ ] Build & Test with 2 clients to verify network sync on NPCMotor and SessionMemory
 
 ---

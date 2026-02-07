@@ -66,6 +66,7 @@ public class SessionMemory : UdonSharpBehaviour
     [UdonSynced] private float[] _memInteractionTime;
     [UdonSynced] private int[] _memIntentHistory;  // last 8 intents bit-packed (2 bits each)
     [UdonSynced] private bool[] _memIsFriend;
+    [UdonSynced] private int[] _memGiftCount;     // total gifts received from this player
     [UdonSynced] private int _memCount;
 
     // Local-only: last-seen timestamps (not synced — relative to local Time.time)
@@ -82,6 +83,7 @@ public class SessionMemory : UdonSharpBehaviour
         _memInteractionTime = new float[MAX_MEMORY];
         _memIntentHistory = new int[MAX_MEMORY];
         _memIsFriend = new bool[MAX_MEMORY];
+        _memGiftCount = new int[MAX_MEMORY];
         _memLastSeenTime = new float[MAX_MEMORY];
         _memSlotActive = new bool[MAX_MEMORY];
         _memCount = 0;
@@ -115,7 +117,8 @@ public class SessionMemory : UdonSharpBehaviour
     /// Called by QuantumDharmaManager when a player exits sensor range.
     /// </summary>
     public void SavePlayer(int playerId, float trust, float kindness,
-                            float interactionTime, int dominantIntent, bool isFriend)
+                            float interactionTime, int dominantIntent,
+                            bool isFriend, int giftCount)
     {
         if (!Networking.IsOwner(gameObject)) return;
 
@@ -137,6 +140,7 @@ public class SessionMemory : UdonSharpBehaviour
         _memTrust[slot] = trust;
         _memKindness[slot] = kindness;
         _memSlotActive[slot] = true;
+        _memGiftCount[slot] = giftCount;
 
         // Accumulate interaction time
         _memInteractionTime[slot] += interactionTime;
@@ -203,6 +207,13 @@ public class SessionMemory : UdonSharpBehaviour
     {
         if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0;
         return _memIntentHistory[memSlot];
+    }
+
+    /// <summary>Get remembered gift count for a memory slot.</summary>
+    public int GetMemoryGiftCount(int memSlot)
+    {
+        if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0;
+        return _memGiftCount[memSlot];
     }
 
     // ================================================================
@@ -358,7 +369,8 @@ public class SessionMemory : UdonSharpBehaviour
 
         string s = "Mem T:" + _memTrust[slot].ToString("F2") +
                    " K:" + _memKindness[slot].ToString("F1") +
-                   " t:" + _memInteractionTime[slot].ToString("F0") + "s";
+                   " t:" + _memInteractionTime[slot].ToString("F0") + "s" +
+                   " G:" + _memGiftCount[slot].ToString();
         if (_memIsFriend[slot]) s += " [Friend]";
 
         return s;

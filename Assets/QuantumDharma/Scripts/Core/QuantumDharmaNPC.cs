@@ -513,6 +513,55 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     }
 
     // ================================================================
+    // Gift response: immediate emotion + utterance override
+    // ================================================================
+
+    /// <summary>
+    /// Force an immediate Grateful emotion and trigger a thankful utterance.
+    /// Called by QuantumDharmaManager when a gift is received.
+    /// Bypasses the normal speech cooldown and chance gate.
+    /// </summary>
+    public void ForceGiftResponse()
+    {
+        if (!Networking.IsOwner(gameObject)) return;
+
+        _currentEmotion = EMOTION_GRATEFUL;
+
+        // Update particles for gratitude burst
+        UpdateParticles(EMOTION_GRATEFUL, 0.7f);
+
+        // Force an immediate utterance from the Grateful vocabulary
+        // Reset cooldown so we always speak on gift
+        _utteranceTimer = _utteranceCooldown;
+        float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
+
+        // Directly select a grateful utterance (bypass chance gate)
+        int eligibleCount = 0;
+        int selectedIdx = -1;
+        for (int i = 0; i < _utteranceCount; i++)
+        {
+            if (_utteranceEmotions[i] != EMOTION_GRATEFUL) continue;
+            if (trust < _utteranceTrustMin[i]) continue;
+
+            eligibleCount++;
+            if (Random.Range(0, eligibleCount) == 0)
+            {
+                selectedIdx = i;
+            }
+        }
+
+        if (selectedIdx >= 0)
+        {
+            DisplayUtterance(selectedIdx);
+            _utteranceTimer = 0f;
+        }
+
+        // Sync emotion
+        _syncedEmotion = _currentEmotion;
+        RequestSerialization();
+    }
+
+    // ================================================================
     // Public read API
     // ================================================================
 

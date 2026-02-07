@@ -44,6 +44,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private QuantumDharmaNPC _npc;
     [SerializeField] private SessionMemory _sessionMemory;
 
+    [Header("Components — Perception (optional)")]
+    [SerializeField] private TouchSensor _touchSensor;
+    [SerializeField] private GiftReceiver _giftReceiver;
+
     [Header("Components — Action (optional)")]
     [SerializeField] private LookAtController _lookAtController;
     [SerializeField] private EmotionAnimator _emotionAnimator;
@@ -107,6 +111,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     private float[] _interactionTimes;
     private const int MAX_TRACK = 80;
 
+    // Touch/gift state override: brief forced state after touch/gift events
+    private bool _touchForcedRetreat;
+    private float _touchRetreatUntil;
+    private bool _giftForcedWarm;
+    private float _giftWarmUntil;
+
     private void Start()
     {
         _npcState = NPC_STATE_SILENCE;
@@ -117,6 +127,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         _lastTrackedIds = new int[MAX_TRACK];
         _lastTrackedCount = 0;
         _interactionTimes = new float[MAX_TRACK];
+        _touchForcedRetreat = false;
+        _touchRetreatUntil = 0f;
+        _giftForcedWarm = false;
+        _giftWarmUntil = 0f;
     }
 
     private void Update()
@@ -153,6 +167,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         {
             UpdateBeliefState();
         }
+
+        // Step 3.5: Process touch and gift events
+        ProcessTouchEvents();
+        ProcessGiftEvents();
 
         // Step 4: Update trust on MarkovBlanket
         UpdateTrust();
@@ -244,13 +262,16 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                     int bSlot = _beliefState.FindSlot(oldId);
                     if (bSlot >= 0)
                     {
+                        int giftCount = _giftReceiver != null
+                            ? _giftReceiver.GetPlayerGiftCount(oldId) : 0;
                         _sessionMemory.SavePlayer(
                             oldId,
                             _beliefState.GetSlotTrust(bSlot),
                             _beliefState.GetSlotKindness(bSlot),
                             _interactionTimes[i],
                             _beliefState.GetDominantIntent(bSlot),
-                            _beliefState.IsFriend(bSlot)
+                            _beliefState.IsFriend(bSlot),
+                            giftCount
                         );
                     }
                 }
@@ -283,6 +304,13 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                         float savedTrust = _sessionMemory.GetMemoryTrust(memSlot);
                         float savedKindness = _sessionMemory.GetMemoryKindness(memSlot);
                         _beliefState.RestoreSlot(slot, savedTrust, savedKindness);
+
+                        // Restore gift count into GiftReceiver
+                        if (_giftReceiver != null)
+                        {
+                            int savedGifts = _sessionMemory.GetMemoryGiftCount(memSlot);
+                            _giftReceiver.RestoreGiftCount(id, savedGifts);
+                        }
                     }
                 }
             }
@@ -453,8 +481,20 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             float handSignal = _playerSensor.GetTrackedHandProximitySignal(i);
             float crouchSignal = _playerSensor.GetTrackedCrouchSignal(i);
 
+            // Touch and gift signals (0 if sensors not wired)
+            float touchSignal = 0f;
+            if (_touchSensor != null && _touchSensor.GetTouchSignalPlayerId() == p.playerId)
+            {
+                touchSignal = _touchSensor.GetTouchSignal();
+            }
+            float giftSignal = 0f;
+            if (_giftReceiver != null && _giftReceiver.GetGiftSignalPlayerId() == p.playerId)
+            {
+                giftSignal = _giftReceiver.GetGiftSignal();
+            }
+
             _beliefState.UpdateBelief(slot, dist, approachSpeed, gazeDot, behaviorPE,
-                                       handSignal, crouchSignal);
+                                       handSignal, crouchSignal, touchSignal, giftSignal);
         }
 
         // Cache dominant intent for focus player
@@ -465,6 +505,85 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         else
         {
             _dominantIntent = BeliefState.INTENT_NEUTRAL;
+        }
+    }
+
+    // ================================================================
+    // Step 3.5a: Process touch events
+    // ================================================================
+
+    private void ProcessTouchEvents()
+    {
+        if (_touchSensor == null) return;
+        if (!_touchSensor.ConsumePendingTouch()) return;
+
+        int touchPlayerId = _touchSensor.GetLastTouchPlayerId();
+        int zone = _touchSensor.GetLastTouchZone();
+        float trustDelta = _touchSensor.GetLastTouchTrustDelta();
+
+        // Apply trust delta directly to MarkovBlanket
+        if (_markovBlanket != null)
+        {
+            _markovBlanket.AdjustTrust(trustDelta);
+        }
+
+        // Apply per-player trust in BeliefState
+        if (_beliefState != null)
+        {
+            int slot = _beliefState.FindSlot(touchPlayerId);
+            if (slot >= 0)
+            {
+                _beliefState.AdjustSlotTrust(slot, trustDelta);
+            }
+        }
+
+        // Low-trust touch or back push → force brief Retreat
+        float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
+        if (trustDelta < 0f || zone == TouchSensor.ZONE_BACK)
+        {
+            _touchForcedRetreat = true;
+            _touchRetreatUntil = Time.time + 1.5f; // brief startle duration
+        }
+    }
+
+    // ================================================================
+    // Step 3.5b: Process gift events
+    // ================================================================
+
+    private void ProcessGiftEvents()
+    {
+        if (_giftReceiver == null) return;
+        if (!_giftReceiver.ConsumePendingGift()) return;
+
+        int giftPlayerId = _giftReceiver.GetLastGiftPlayerId();
+        float trustDelta = _giftReceiver.GetLastGiftTrustDelta();
+
+        // Apply trust boost to MarkovBlanket
+        if (_markovBlanket != null)
+        {
+            _markovBlanket.AdjustTrust(trustDelta);
+        }
+
+        // Apply per-player trust and kindness boost in BeliefState
+        if (_beliefState != null)
+        {
+            int slot = _beliefState.FindSlot(giftPlayerId);
+            if (slot >= 0)
+            {
+                _beliefState.AdjustSlotTrust(slot, trustDelta);
+                // Gift = strong kindness signal (2x trust delta as kindness score)
+                _beliefState.BoostSlotKindness(slot, trustDelta * 2f);
+            }
+        }
+
+        // Force Warm/Grateful emotion and trigger utterance
+        _giftForcedWarm = true;
+        _giftWarmUntil = Time.time + 3.0f; // warm glow duration
+
+        // Trigger gift response on personality layer
+        if (_npc != null)
+        {
+            _npc.ForceGiftResponse();
         }
     }
 
@@ -517,6 +636,28 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
     private void SelectState()
     {
+        // Touch-forced retreat overrides all other state logic
+        if (_touchForcedRetreat)
+        {
+            if (Time.time < _touchRetreatUntil)
+            {
+                _npcState = NPC_STATE_RETREAT;
+                return;
+            }
+            _touchForcedRetreat = false;
+        }
+
+        // Gift-forced approach overrides (NPC gravitates toward gifter)
+        if (_giftForcedWarm)
+        {
+            if (Time.time < _giftWarmUntil)
+            {
+                _npcState = _focusPlayer != null ? NPC_STATE_APPROACH : NPC_STATE_SILENCE;
+                return;
+            }
+            _giftForcedWarm = false;
+        }
+
         if (_focusPlayer == null)
         {
             _npcState = NPC_STATE_SILENCE;
@@ -680,6 +821,26 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public SessionMemory GetSessionMemory()
     {
         return _sessionMemory;
+    }
+
+    public TouchSensor GetTouchSensor()
+    {
+        return _touchSensor;
+    }
+
+    public GiftReceiver GetGiftReceiver()
+    {
+        return _giftReceiver;
+    }
+
+    public bool IsTouchForcedRetreat()
+    {
+        return _touchForcedRetreat && Time.time < _touchRetreatUntil;
+    }
+
+    public bool IsGiftForcedWarm()
+    {
+        return _giftForcedWarm && Time.time < _giftWarmUntil;
     }
 
     public string GetNPCStateName()

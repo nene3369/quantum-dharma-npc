@@ -44,7 +44,9 @@ public class BeliefState : UdonSharpBehaviour
     private const int FEAT_BEHAVIOR_PE    = 3;
     private const int FEAT_HAND_PROXIMITY = 4;
     private const int FEAT_CROUCH         = 5;
-    private const int FEAT_COUNT          = 6;
+    private const int FEAT_TOUCH          = 6;
+    private const int FEAT_GIFT           = 7;
+    private const int FEAT_COUNT          = 8;
 
     // ================================================================
     // Slot management
@@ -161,6 +163,10 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.3f;
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.3f;
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_CROUCH]         = 0.1f;
+        //   Touch: approaching players may or may not touch
+        //   Gift: not expected during approach
+        _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_TOUCH]          = 0.2f;
+        _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_GIFT]           = 0.1f;
 
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_DISTANCE]       = 3.0f;
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_APPROACH_SPEED] = 1.5f;
@@ -168,6 +174,8 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.5f;
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.5f;
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_CROUCH]         = 0.4f;
+        _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_TOUCH]          = 0.5f;
+        _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_GIFT]           = 0.3f;
 
         // NEUTRAL: any distance, low speed, not looking, predictable
         //   Hand proximity: hands at sides (no signal)
@@ -178,6 +186,10 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.2f;
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.0f;
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_CROUCH]         = 0.0f;
+        //   Touch: neutral players don't touch
+        //   Gift: neutral players don't give gifts
+        _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_TOUCH]          = 0.0f;
+        _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_GIFT]           = 0.0f;
 
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_DISTANCE]       = 5.0f;
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_APPROACH_SPEED] = 1.0f;
@@ -185,6 +197,8 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.3f;
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.4f;
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_CROUCH]         = 0.3f;
+        _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_TOUCH]          = 0.3f;
+        _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_GIFT]           = 0.2f;
 
         // THREAT: close, fast approach, erratic behavior
         //   Hand proximity: hands close but body also close (rushing in)
@@ -195,6 +209,10 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 1.5f;
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.0f;
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_CROUCH]         = 0.0f;
+        //   Touch: threatening touch = negative signal (push/startle)
+        //   Gift: threats don't give gifts
+        _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_TOUCH]          = -0.7f;
+        _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_GIFT]           = 0.0f;
 
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_DISTANCE]       = 2.0f;
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_APPROACH_SPEED] = 2.0f;
@@ -202,6 +220,8 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 1.0f;
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.3f;
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_CROUCH]         = 0.3f;
+        _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_TOUCH]          = 0.5f;
+        _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_GIFT]           = 0.2f;
 
         // FRIENDLY: comfortable distance, gentle approach, looking, calm
         //   Hand proximity: high — reaching out is a strong friendly signal
@@ -212,6 +232,10 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.1f;
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.8f;
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_CROUCH]         = 0.7f;
+        //   Touch: friendly players touch gently — strongest friendly signal
+        //   Gift: giving a gift is the ultimate kindness signal
+        _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_TOUCH]          = 0.9f;
+        _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_GIFT]           = 0.9f;
 
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_DISTANCE]       = 2.0f;
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_APPROACH_SPEED] = 0.8f;
@@ -219,6 +243,8 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.3f;
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.4f;
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_CROUCH]         = 0.5f;
+        _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_TOUCH]          = 0.3f;
+        _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_GIFT]           = 0.3f;
     }
 
     // ================================================================
@@ -291,6 +317,26 @@ public class BeliefState : UdonSharpBehaviour
         _slotKindness[slot] = Mathf.Max(0f, kindness);
     }
 
+    /// <summary>
+    /// Apply an instant trust adjustment to a player slot.
+    /// Used by touch/gift events that bypass the normal Bayesian update cycle.
+    /// </summary>
+    public void AdjustSlotTrust(int slot, float delta)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
+        _slotTrust[slot] = Mathf.Clamp(_slotTrust[slot] + delta, -1f, 1f);
+    }
+
+    /// <summary>
+    /// Apply an instant kindness boost to a player slot.
+    /// Used when a player gives a gift — strongest kindness signal.
+    /// </summary>
+    public void BoostSlotKindness(int slot, float amount)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
+        _slotKindness[slot] += Mathf.Max(0f, amount);
+    }
+
     // ================================================================
     // Bayesian update
     // ================================================================
@@ -302,10 +348,13 @@ public class BeliefState : UdonSharpBehaviour
     ///
     /// handProximitySignal: 0-1, how close the player's hand is (only when reaching out)
     /// crouchSignal: 0-1, how deeply the player is crouching
+    /// touchSignal: [-1, 1], positive = friendly touch, negative = threat/startle
+    /// giftSignal: [0, 1], 1.0 = just gave a gift
     /// </summary>
     public void UpdateBelief(int slot, float distance, float approachSpeed,
                               float gazeDot, float behaviorPE,
-                              float handProximitySignal, float crouchSignal)
+                              float handProximitySignal, float crouchSignal,
+                              float touchSignal, float giftSignal)
     {
         if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
 
@@ -317,6 +366,8 @@ public class BeliefState : UdonSharpBehaviour
         features[FEAT_BEHAVIOR_PE] = behaviorPE;
         features[FEAT_HAND_PROXIMITY] = handProximitySignal;
         features[FEAT_CROUCH] = crouchSignal;
+        features[FEAT_TOUCH] = touchSignal;
+        features[FEAT_GIFT] = giftSignal;
 
         // Compute unnormalized posterior for each intent
         float[] newPosterior = new float[INTENT_COUNT];
