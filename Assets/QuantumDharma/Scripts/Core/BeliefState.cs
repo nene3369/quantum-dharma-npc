@@ -42,7 +42,9 @@ public class BeliefState : UdonSharpBehaviour
     private const int FEAT_APPROACH_SPEED = 1;
     private const int FEAT_GAZE           = 2;
     private const int FEAT_BEHAVIOR_PE    = 3;
-    private const int FEAT_COUNT          = 4;
+    private const int FEAT_HAND_PROXIMITY = 4;
+    private const int FEAT_CROUCH         = 5;
+    private const int FEAT_COUNT          = 6;
 
     // ================================================================
     // Slot management
@@ -151,48 +153,72 @@ public class BeliefState : UdonSharpBehaviour
         _likelihoodSigma = new float[INTENT_COUNT * FEAT_COUNT];
 
         // APPROACH: moderate distance closing, looking at NPC, calm behavior
+        //   Hand proximity: may or may not reach out
+        //   Crouch: unlikely to crouch while approaching
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_DISTANCE]       = _comfortableDistance * 0.8f;
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_APPROACH_SPEED] = 1.5f;
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_GAZE]           = 0.6f;
         _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.3f;
+        _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.3f;
+        _likelihoodMu[INTENT_APPROACH * FEAT_COUNT + FEAT_CROUCH]         = 0.1f;
 
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_DISTANCE]       = 3.0f;
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_APPROACH_SPEED] = 1.5f;
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_GAZE]           = 0.4f;
         _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.5f;
+        _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.5f;
+        _likelihoodSigma[INTENT_APPROACH * FEAT_COUNT + FEAT_CROUCH]         = 0.4f;
 
         // NEUTRAL: any distance, low speed, not looking, predictable
+        //   Hand proximity: hands at sides (no signal)
+        //   Crouch: not crouching
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_DISTANCE]       = _comfortableDistance * 1.5f;
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_APPROACH_SPEED] = 0.0f;
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_GAZE]           = 0.0f;
         _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.2f;
+        _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.0f;
+        _likelihoodMu[INTENT_NEUTRAL * FEAT_COUNT + FEAT_CROUCH]         = 0.0f;
 
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_DISTANCE]       = 5.0f;
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_APPROACH_SPEED] = 1.0f;
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_GAZE]           = 0.5f;
         _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.3f;
+        _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.4f;
+        _likelihoodSigma[INTENT_NEUTRAL * FEAT_COUNT + FEAT_CROUCH]         = 0.3f;
 
         // THREAT: close, fast approach, erratic behavior
+        //   Hand proximity: hands close but body also close (rushing in)
+        //   Crouch: unlikely
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_DISTANCE]       = _comfortableDistance * 0.3f;
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_APPROACH_SPEED] = 4.0f;
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_GAZE]           = 0.3f;
         _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 1.5f;
+        _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.0f;
+        _likelihoodMu[INTENT_THREAT * FEAT_COUNT + FEAT_CROUCH]         = 0.0f;
 
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_DISTANCE]       = 2.0f;
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_APPROACH_SPEED] = 2.0f;
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_GAZE]           = 0.5f;
         _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 1.0f;
+        _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.3f;
+        _likelihoodSigma[INTENT_THREAT * FEAT_COUNT + FEAT_CROUCH]         = 0.3f;
 
         // FRIENDLY: comfortable distance, gentle approach, looking, calm
+        //   Hand proximity: high — reaching out is a strong friendly signal
+        //   Crouch: high — crouching to meet the NPC is a kindness gesture
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_DISTANCE]       = _comfortableDistance;
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_APPROACH_SPEED] = 0.5f;
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_GAZE]           = 0.7f;
         _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.1f;
+        _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.8f;
+        _likelihoodMu[INTENT_FRIENDLY * FEAT_COUNT + FEAT_CROUCH]         = 0.7f;
 
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_DISTANCE]       = 2.0f;
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_APPROACH_SPEED] = 0.8f;
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_GAZE]           = 0.3f;
         _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_BEHAVIOR_PE]    = 0.3f;
+        _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_HAND_PROXIMITY] = 0.4f;
+        _likelihoodSigma[INTENT_FRIENDLY * FEAT_COUNT + FEAT_CROUCH]         = 0.5f;
     }
 
     // ================================================================
@@ -261,9 +287,13 @@ public class BeliefState : UdonSharpBehaviour
     /// Update the posterior for a player slot given observed features.
     /// Implements: posterior ∝ likelihood(observations | intent) × prior
     /// with smoothing toward the previous posterior for stability.
+    ///
+    /// handProximitySignal: 0-1, how close the player's hand is (only when reaching out)
+    /// crouchSignal: 0-1, how deeply the player is crouching
     /// </summary>
     public void UpdateBelief(int slot, float distance, float approachSpeed,
-                              float gazeDot, float behaviorPE)
+                              float gazeDot, float behaviorPE,
+                              float handProximitySignal, float crouchSignal)
     {
         if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
 
@@ -273,6 +303,8 @@ public class BeliefState : UdonSharpBehaviour
         features[FEAT_APPROACH_SPEED] = approachSpeed;
         features[FEAT_GAZE] = gazeDot;
         features[FEAT_BEHAVIOR_PE] = behaviorPE;
+        features[FEAT_HAND_PROXIMITY] = handProximitySignal;
+        features[FEAT_CROUCH] = crouchSignal;
 
         // Compute unnormalized posterior for each intent
         float[] newPosterior = new float[INTENT_COUNT];

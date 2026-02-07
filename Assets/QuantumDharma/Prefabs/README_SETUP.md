@@ -21,6 +21,8 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── Model                     ← Your NPC mesh/avatar model
 ├── MarkovBlanket             ← Empty GameObject
 ├── PlayerSensor              ← Empty GameObject
+├── HandProximityDetector     ← Empty GameObject (optional)
+├── PostureDetector           ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── QuantumDharmaManager      ← Empty GameObject
 ├── FreeEnergyVisualizer      ← Empty GameObject + LineRenderer
@@ -62,8 +64,33 @@ No special components needed on the root. Position this where you want the NPC t
    - **Poll Interval:** 0.25 (seconds between scans)
    - **Markov Blanket:** drag the MarkovBlanket GameObject
    - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Hand Proximity Detector:** (optional) drag the HandProximityDetector GameObject
+   - **Posture Detector:** (optional) drag the PostureDetector GameObject
 
-### 2d. NPCMotor
+### 2d. HandProximityDetector (optional)
+
+1. Create an empty child GameObject under the NPC root named `HandProximityDetector`
+2. Add **UdonBehaviour**
+3. Attach script: `HandProximityDetector.cs`
+4. Position this GameObject at the NPC's center (or same as the NPC root)
+5. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Reach Threshold:** 1.5 (max hand distance for "reaching out" classification)
+   - **Min Body Distance:** 1.0 (body must be at least this far for "reaching out")
+   - **Poll Interval:** 0.25
+
+### 2e. PostureDetector (optional)
+
+1. Create an empty child GameObject under the NPC root named `PostureDetector`
+2. Add **UdonBehaviour**
+3. Attach script: `PostureDetector.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Crouch Threshold:** 0.7 (head/eye ratio below which = crouching)
+   - **Crouch Kindness Multiplier:** 1.5 (trust boost when crouching)
+   - **Poll Interval:** 0.25
+
+### 2g. NPCMotor
 
 1. Add **UdonBehaviour**
 2. Attach script: `NPCMotor.cs`
@@ -78,7 +105,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Set **Sync Mode** on the UdonBehaviour to **Continuous**
    - The NPCMotor uses `[UdonSynced]` variables for position/rotation
 
-### 2e. QuantumDharmaManager
+### 2h. QuantumDharmaManager
 
 1. Add **UdonBehaviour**
 2. Attach script: `QuantumDharmaManager.cs`
@@ -92,7 +119,7 @@ No special components needed on the root. Position this where you want the NPC t
    - **Retreat Threshold:** 6.0
    - **Action Cost Threshold:** 0.5
 
-### 2f. FreeEnergyVisualizer
+### 2i. FreeEnergyVisualizer
 
 1. Add a **LineRenderer** component
 2. Add **UdonBehaviour**
@@ -107,7 +134,7 @@ No special components needed on the root. Position this where you want the NPC t
    - Leave position count at 0 — the script manages it at runtime
 6. Set **Visualizer Enabled** to true (or false to disable for Quest)
 
-### 2g. DebugCanvas
+### 2j. DebugCanvas
 
 1. Add **Canvas** component
    - **Render Mode:** World Space
@@ -151,26 +178,36 @@ No special components needed on the root. Position this where you want the NPC t
 
 ```
 PlayerSensor
-  ├─→ MarkovBlanket        (reads detection radius)
-  └─→ QuantumDharmaManager (notifies on observation update)
+  ├─→ MarkovBlanket            (reads detection radius)
+  ├─→ QuantumDharmaManager     (notifies on observation update)
+  ├─→ HandProximityDetector    (optional: delegates hand queries)
+  └─→ PostureDetector          (optional: delegates posture queries)
+
+HandProximityDetector
+  └─→ PlayerSensor             (reads tracked players + distances)
+
+PostureDetector
+  └─→ PlayerSensor             (reads tracked players)
 
 QuantumDharmaManager
-  ├─→ PlayerSensor          (reads player observations)
-  ├─→ MarkovBlanket         (reads trust, sends trust adjustments)
-  └─→ NPCMotor              (issues movement commands)
+  ├─→ PlayerSensor             (reads player observations + hand/crouch)
+  ├─→ MarkovBlanket            (reads trust, sends trust adjustments)
+  └─→ NPCMotor                 (issues movement commands)
 
 NPCMotor
-  └─→ PlayerSensor          (reads closest player for convenience methods)
+  └─→ PlayerSensor             (reads closest player for convenience methods)
 
 DebugOverlay
-  ├─→ QuantumDharmaManager  (reads state, free energy, PE values)
-  ├─→ MarkovBlanket         (reads trust, radius)
-  ├─→ PlayerSensor          (reads tracked player count)
-  └─→ NPCMotor              (reads motor state)
+  ├─→ QuantumDharmaManager     (reads state, free energy, PE values)
+  ├─→ MarkovBlanket            (reads trust, radius)
+  ├─→ PlayerSensor             (reads tracked player count)
+  ├─→ NPCMotor                 (reads motor state)
+  ├─→ HandProximityDetector    (optional: reads hand proximity data)
+  └─→ PostureDetector          (optional: reads posture data)
 
 FreeEnergyVisualizer
-  ├─→ QuantumDharmaManager  (reads normalized prediction error)
-  └─→ MarkovBlanket         (reads current radius for ring size)
+  ├─→ QuantumDharmaManager     (reads normalized prediction error)
+  └─→ MarkovBlanket            (reads current radius for ring size)
 ```
 
 ---
@@ -183,6 +220,8 @@ FreeEnergyVisualizer
 - [ ] Rush at NPC — verify Retreat state and trust decrease
 - [ ] Stand still nearby looking at NPC — verify trust increases over time
 - [ ] Walk away — verify return to Silence
+- [ ] Extend hand toward NPC while keeping body distance — verify "Reach" indicator in debug overlay
+- [ ] Crouch near NPC — verify "Crouch" indicator and trust growth acceleration
 - [ ] Toggle DebugOverlay by clicking/interacting with the NPC
 - [ ] Check FreeEnergyVisualizer ring matches blanket radius and pulses with PE
 - [ ] Build & Test with 2 clients to verify network sync on NPCMotor

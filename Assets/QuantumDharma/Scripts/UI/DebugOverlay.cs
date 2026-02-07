@@ -39,6 +39,8 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private FreeEnergyCalculator _freeEnergyCalculator;
     [SerializeField] private BeliefState _beliefState;
     [SerializeField] private QuantumDharmaNPC _npc;
+    [SerializeField] private HandProximityDetector _handProximityDetector;
+    [SerializeField] private PostureDetector _postureDetector;
 
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
@@ -242,6 +244,55 @@ public class DebugOverlay : UdonSharpBehaviour
             details += "\nPlayers: " + playerCount.ToString() +
                 "  Dist: " + (focusDist < 999f ? focusDist.ToString("F1") + "m" : "--") +
                 "  Motor: " + motorLabel;
+
+            // Hand proximity + crouch line
+            if (_handProximityDetector != null || _postureDetector != null)
+            {
+                string bodyLine = "\n";
+                // Find focus player index in sensor
+                int focusSensorIdx = -1;
+                if (_playerSensor != null && _manager != null)
+                {
+                    VRCPlayerApi focusP = _manager.GetFocusPlayer();
+                    if (focusP != null && focusP.IsValid())
+                    {
+                        int cnt = _playerSensor.GetTrackedPlayerCount();
+                        for (int i = 0; i < cnt; i++)
+                        {
+                            VRCPlayerApi tp = _playerSensor.GetTrackedPlayer(i);
+                            if (tp != null && tp.playerId == focusP.playerId)
+                            {
+                                focusSensorIdx = i;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (focusSensorIdx >= 0)
+                {
+                    if (_handProximityDetector != null)
+                    {
+                        float handDist = _handProximityDetector.GetClosestHandDistance(focusSensorIdx);
+                        bool reaching = _handProximityDetector.IsReachingOut(focusSensorIdx);
+                        bodyLine += "Hand:" + (handDist < 999f ? handDist.ToString("F1") + "m" : "--");
+                        if (reaching) bodyLine += " [Reach]";
+                    }
+                    if (_postureDetector != null)
+                    {
+                        float ratio = _postureDetector.GetHeadHeightRatio(focusSensorIdx);
+                        bool crouching = _postureDetector.IsCrouching(focusSensorIdx);
+                        bodyLine += "  Posture:" + ratio.ToString("F2");
+                        if (crouching) bodyLine += " [Crouch]";
+                    }
+                }
+                else
+                {
+                    bodyLine += "Hand:--  Posture:--";
+                }
+
+                details += bodyLine;
+            }
 
             // Belief state line
             if (_beliefState != null)

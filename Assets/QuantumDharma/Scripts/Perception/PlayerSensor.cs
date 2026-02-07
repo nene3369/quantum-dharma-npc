@@ -21,6 +21,10 @@ public class PlayerSensor : UdonSharpBehaviour
     [SerializeField] private MarkovBlanket _markovBlanket;
     [SerializeField] private QuantumDharmaManager _manager;
 
+    [Header("References — Enhanced (optional)")]
+    [SerializeField] private HandProximityDetector _handProximityDetector;
+    [SerializeField] private PostureDetector _postureDetector;
+
     // --- Observed player arrays (fixed-size, max 80 VRChat instance cap) ---
     private const int MAX_PLAYERS = 80;
 
@@ -233,6 +237,56 @@ public class PlayerSensor : UdonSharpBehaviour
     {
         if (index < 0 || index >= _trackedCount) return float.MaxValue;
         return _playerDistances[index];
+    }
+
+    // ----------------------------------------------------------------
+    // Hand proximity accessors (delegate to HandProximityDetector)
+    // ----------------------------------------------------------------
+
+    /// <summary>Distance from the player's closest hand to the NPC.</summary>
+    public float GetTrackedHandDistance(int index)
+    {
+        if (_handProximityDetector == null) return float.MaxValue;
+        return _handProximityDetector.GetClosestHandDistance(index);
+    }
+
+    /// <summary>True when the player is extending a hand toward the NPC at respectful body distance.</summary>
+    public bool IsTrackedPlayerReachingOut(int index)
+    {
+        if (_handProximityDetector == null) return false;
+        return _handProximityDetector.IsReachingOut(index);
+    }
+
+    /// <summary>0-1 hand proximity signal (1 = hand very close, only when reaching out).</summary>
+    public float GetTrackedHandProximitySignal(int index)
+    {
+        if (_handProximityDetector == null) return 0f;
+        return _handProximityDetector.GetHandProximitySignal(index);
+    }
+
+    // ----------------------------------------------------------------
+    // Posture accessors (delegate to PostureDetector)
+    // ----------------------------------------------------------------
+
+    /// <summary>True when the player is crouching (head significantly below standing height).</summary>
+    public bool IsTrackedPlayerCrouching(int index)
+    {
+        if (_postureDetector == null) return false;
+        return _postureDetector.IsCrouching(index);
+    }
+
+    /// <summary>0-1 crouch signal (1 = deep crouch, 0 = standing).</summary>
+    public float GetTrackedCrouchSignal(int index)
+    {
+        if (_postureDetector == null) return 0f;
+        return _postureDetector.GetCrouchSignal(index);
+    }
+
+    /// <summary>Head-to-eye-height ratio (1.0 = standing, &lt; 0.7 = crouching).</summary>
+    public float GetTrackedHeadHeightRatio(int index)
+    {
+        if (_postureDetector == null) return 1f;
+        return _postureDetector.GetHeadHeightRatio(index);
     }
 
     /// <summary>

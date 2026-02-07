@@ -380,7 +380,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                 }
             }
 
-            _beliefState.UpdateBelief(slot, dist, approachSpeed, gazeDot, behaviorPE);
+            // Hand proximity and crouch signals (0 if detectors not wired)
+            float handSignal = _playerSensor.GetTrackedHandProximitySignal(i);
+            float crouchSignal = _playerSensor.GetTrackedCrouchSignal(i);
+
+            _beliefState.UpdateBelief(slot, dist, approachSpeed, gazeDot, behaviorPE,
+                                       handSignal, crouchSignal);
         }
 
         // Cache dominant intent for focus player
