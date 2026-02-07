@@ -640,7 +640,6 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         // Low-trust touch or back push → force brief Retreat
-        float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
         if (trustDelta < 0f || zone == TouchSensor.ZONE_BACK)
         {
             _touchForcedRetreat = true;

@@ -127,6 +127,9 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
 
     private void Start()
     {
+        // Guard configurable window size (used as modulo divisor and array size)
+        _behaviorWindowSize = Mathf.Max(_behaviorWindowSize, 1);
+
         _slotPlayerIds = new int[MAX_SLOTS];
         _slotActive = new bool[MAX_SLOTS];
         _slotFreeEnergy = new float[MAX_SLOTS];
