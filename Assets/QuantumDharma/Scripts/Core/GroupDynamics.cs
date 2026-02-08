@@ -585,4 +585,63 @@ public class GroupDynamics : UdonSharpBehaviour
         }
         return largest;
     }
+
+    // ================================================================
+    // Group stability and social roles
+    // ================================================================
+
+    /// <summary>
+    /// Group stability [0, 1]: how consistent membership has been.
+    /// Based on group trust (high trust = stable relationships) and
+    /// size persistence. Returns 0 if group doesn't exist.
+    /// </summary>
+    public float GetGroupStability(int groupId)
+    {
+        if (groupId < 0 || groupId >= MAX_GROUPS || !_groupActive[groupId]) return 0f;
+        // Stability correlates with positive group trust and group size
+        float trustFactor = Mathf.Clamp01(_groupTrust[groupId]);
+        float sizeFactor = Mathf.Clamp01(_groupSize[groupId] / 4f); // 4+ = full stability
+        return trustFactor * 0.6f + sizeFactor * 0.4f;
+    }
+
+    /// <summary>
+    /// Social role of a slot within its group. Returns:
+    ///   0 = not in a group
+    ///   1 = peripheral (lowest trust in group)
+    ///   2 = member (middle trust)
+    ///   3 = central (highest trust in group = social anchor)
+    /// </summary>
+    public int GetGroupRole(int slot)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS) return 0;
+        int groupId = _slotGroupId[slot];
+        if (groupId == GROUP_NONE) return 0;
+        if (!_groupActive[groupId]) return 0;
+
+        float myTrust = _beliefState.GetSlotTrust(slot);
+        int higherCount = 0;
+        int totalMembers = _groupMemberCount[groupId];
+
+        for (int m = 0; m < totalMembers; m++)
+        {
+            int memberSlot = _groupMembers[groupId * MAX_SLOTS + m];
+            if (memberSlot == slot) continue;
+            if (_beliefState.GetSlotTrust(memberSlot) > myTrust) higherCount++;
+        }
+
+        if (totalMembers <= 1) return 3; // solo = central by default
+        float rank = 1f - (float)higherCount / Mathf.Max(totalMembers - 1, 1);
+        if (rank >= 0.7f) return 3; // central
+        if (rank >= 0.3f) return 2; // member
+        return 1; // peripheral
+    }
+
+    /// <summary>Name for group role integer.</summary>
+    public string GetGroupRoleName(int role)
+    {
+        if (role == 1) return "Peripheral";
+        if (role == 2) return "Member";
+        if (role == 3) return "Central";
+        return "None";
+    }
 }

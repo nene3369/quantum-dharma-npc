@@ -257,6 +257,14 @@ public class OralHistory : UdonSharpBehaviour
     /// </summary>
     private void AddStory(int type, float strength)
     {
+        // Select a random template from the pool
+        int templateIdx = Random.Range(0, POOL_SIZE);
+        string text = _templateTexts[type * POOL_SIZE + templateIdx];
+        AddStory(type, strength, text);
+    }
+
+    private void AddStory(int type, float strength, string customText)
+    {
         if (_storyCount >= MAX_STORIES) return;
 
         // Find an empty slot
@@ -271,14 +279,10 @@ public class OralHistory : UdonSharpBehaviour
         }
         if (slot < 0) return;
 
-        // Select a random template from the pool
-        int templateIdx = Random.Range(0, POOL_SIZE);
-        string text = _templateTexts[type * POOL_SIZE + templateIdx];
-
         _storyActive[slot] = true;
         _storyType[slot] = type;
         _storyStrength[slot] = Mathf.Clamp01(strength);
-        _storyText[slot] = text;
+        _storyText[slot] = customText;
         _storyTold[slot] = false;
         _storyCount++;
     }
@@ -400,5 +404,29 @@ public class OralHistory : UdonSharpBehaviour
     public int GetGiftEventCount()
     {
         return _giftEventCount;
+    }
+
+    /// <summary>
+    /// Checks whether the NPC should tell a story given its current state.
+    /// Stories are only told during engaged states, not during retreat/silence.
+    /// Returns false if NPC is anxious (too stressed to narrate).
+    /// </summary>
+    public bool ShouldTellStory(int npcState, int npcEmotion)
+    {
+        // Only tell stories during Observe or Approach
+        if (npcState != 1 && npcState != 2) return false; // OBSERVE=1, APPROACH=2
+        // Don't narrate while anxious
+        if (npcEmotion == 3) return false; // EMOTION_ANXIOUS=3
+        return HasStoryToTell();
+    }
+
+    /// <summary>
+    /// External event: norm observation. Creates a NORM story about
+    /// what typically happens in an area.
+    /// </summary>
+    public void NotifyNormObservation(string normText)
+    {
+        if (normText.Length == 0) return;
+        AddStory(STORY_NORM, 0.5f, normText);
     }
 }

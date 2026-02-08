@@ -720,11 +720,57 @@ public class DebugOverlay : UdonSharpBehaviour
                 }
             }
 
-            // Vocabulary and peak emotion line
+            // Vocabulary, peak emotion, and belief confidence
             if (_npc != null)
             {
                 details += "\nVocab:" + _npc.GetVocabularySize().ToString() +
                     " peak:" + _npc.GetPeakEmotionIntensity().ToString("F2");
+            }
+            // Belief confidence for focus slot
+            if (_manager != null && _manager.GetBeliefState() != null)
+            {
+                int fSlot = _manager.GetFocusSlot();
+                if (fSlot >= 0)
+                {
+                    BeliefState bs = _manager.GetBeliefState();
+                    details += " conf:" + bs.GetBeliefConfidence(fSlot).ToString("F2") +
+                        " H:" + bs.GetPosteriorEntropy(fSlot).ToString("F2");
+                }
+            }
+            // Group role and stability
+            if (_manager != null)
+            {
+                GroupDynamics gd = _manager.GetGroupDynamics();
+                if (gd != null)
+                {
+                    int fSlotG = _manager.GetFocusSlot();
+                    if (fSlotG >= 0)
+                    {
+                        int role = gd.GetGroupRole(fSlotG);
+                        if (role > 0)
+                        {
+                            int gId = gd.GetGroupId(fSlotG);
+                            details += "\nGroup:" + gId.ToString() +
+                                " role:" + gd.GetGroupRoleName(role) +
+                                " stab:" + gd.GetGroupStability(gId).ToString("F2");
+                        }
+                    }
+                }
+            }
+            // Motor speed and gesture intensity
+            if (_manager != null)
+            {
+                NPCMotor motor = _manager.GetNPCMotor();
+                if (motor != null)
+                {
+                    details += "\nSpeed:" + motor.GetCurrentSpeed().ToString("F1") +
+                        " mod:" + motor.GetTrustSpeedModifier().ToString("F2");
+                }
+                GestureController gc = _manager.GetGestureController();
+                if (gc != null)
+                {
+                    details += " gInt:" + gc.GetGestureIntensity().ToString("F2");
+                }
             }
 
             // Stage toggles line

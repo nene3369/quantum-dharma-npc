@@ -177,6 +177,13 @@ public class AttentionSystem : UdonSharpBehaviour
                 feBoost = _freeEnergyCalculator.GetSlotFreeEnergy(s) * _freeEnergyBoost;
             }
 
+            // Trust discount: well-known friends need less monitoring (predictable)
+            float trust = _beliefState.GetSlotTrust(s);
+            if (trust > 0.3f)
+            {
+                basePriority *= (1f - trust * 0.4f);
+            }
+
             _rawPriority[s] = basePriority + noveltyBoost + feBoost;
             totalPriority += _rawPriority[s];
         }

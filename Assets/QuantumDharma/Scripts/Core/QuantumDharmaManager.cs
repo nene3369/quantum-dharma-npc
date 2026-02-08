@@ -500,6 +500,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             // Companion memory: check if usual companion is missing
             if (_companionMemory != null) _companionMemory.NotifyPlayerArrived(id);
 
+            // Legend presence: refresh decay timer for legendary players
+            if (_mythology != null) _mythology.NotifyLegendPresent(id);
+
             if (_freeEnergyCalculator != null) _freeEnergyCalculator.RegisterPlayer(id);
             if (_beliefState != null)
             {
@@ -521,7 +524,8 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                     {
                         float savedTrust = _sessionMemory.GetMemoryTrust(memSlot);
                         float savedKindness = _sessionMemory.GetMemoryKindness(memSlot);
-                        _beliefState.RestoreSlot(slot, savedTrust, savedKindness);
+                        int savedIntentHistory = _sessionMemory.GetMemoryIntentHistory(memSlot);
+                        _beliefState.RestoreSlotWithHistory(slot, savedTrust, savedKindness, savedIntentHistory);
 
                         // Restore gift count into GiftReceiver
                         if (_giftReceiver != null)
@@ -1050,6 +1054,13 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     {
         if (_npcMotor == null) return;
 
+        // Trust-based speed modulation: higher trust = faster approach
+        if (_focusSlot >= 0 && _beliefState != null)
+        {
+            float focusTrust = _beliefState.GetSlotTrust(_focusSlot);
+            _npcMotor.SetTrustSpeedModifier(focusTrust);
+        }
+
         switch (_npcState)
         {
             case NPC_STATE_SILENCE:
@@ -1107,11 +1118,14 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             }
         }
 
-        // Oral history: tell stories during calm periods with players present
-        if (_oralHistory != null && _focusPlayer != null &&
-            _npcState == NPC_STATE_SILENCE && _oralHistory.HasStoryToTell())
+        // Oral history: tell stories when conditions are right
+        if (_oralHistory != null && _focusPlayer != null)
         {
-            _oralHistory.TellStory();
+            int npcEmotion = _npc != null ? _npc.GetCurrentEmotion() : 0;
+            if (_oralHistory.ShouldTellStory(_npcState, npcEmotion))
+            {
+                _oralHistory.TellStory();
+            }
         }
 
         // Mythology: tell legends during calm periods
@@ -1129,6 +1143,35 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             if (ritualBonus > 0f && _focusSlot >= 0)
             {
                 _beliefState.AdjustSlotTrust(_focusSlot, ritualBonus);
+            }
+        }
+
+        // Legend trust bonus: legendary players get extra trust
+        if (_mythology != null && _beliefState != null &&
+            _focusPlayer != null && _focusSlot >= 0)
+        {
+            float legendBonus = _mythology.GetLegendTrustBonus(_focusPlayer.playerId);
+            if (legendBonus > 0f)
+            {
+                _beliefState.AdjustSlotTrust(_focusSlot, legendBonus);
+                _mythology.NotifyLegendPresent(_focusPlayer.playerId);
+            }
+        }
+
+        // Norm speech: NPC occasionally comments on observed norms during OBSERVE
+        if (_normFormation != null && _npc != null &&
+            _npcState == NPC_STATE_OBSERVE && _focusPlayer != null)
+        {
+            string normText = _normFormation.GetNormTextForPosition(transform.position);
+            if (normText.Length > 0 && Random.Range(0f, 1f) < 0.02f)
+            {
+                _npc.ForceDisplayText(normText, 4f);
+            }
+
+            // Also feed norms to OralHistory for story generation
+            if (_oralHistory != null)
+            {
+                _oralHistory.NotifyNormObservation(normText);
             }
         }
 
@@ -1377,6 +1420,16 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public FarewellBehavior GetFarewellBehavior()
     {
         return _farewellBehavior;
+    }
+
+    public BeliefState GetBeliefState()
+    {
+        return _beliefState;
+    }
+
+    public NPCMotor GetNPCMotor()
+    {
+        return _npcMotor;
     }
 
     public bool IsStageEnabled(int stage)

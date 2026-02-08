@@ -616,4 +616,86 @@ public class BeliefState : UdonSharpBehaviour
     {
         return _activeSlotCount;
     }
+
+    // ================================================================
+    // Belief confidence (Shannon entropy of posterior)
+    // ================================================================
+
+    /// <summary>
+    /// Shannon entropy of the posterior for a slot.
+    /// High entropy = uncertain. Low entropy = confident.
+    /// Range: [0, ln(4) ~ 1.386].
+    /// </summary>
+    public float GetPosteriorEntropy(int slot)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return 0f;
+        int baseIdx = slot * INTENT_COUNT;
+        float entropy = 0f;
+        for (int i = 0; i < INTENT_COUNT; i++)
+        {
+            float p = _posteriors[baseIdx + i];
+            if (p > 0.0001f)
+            {
+                entropy -= p * Mathf.Log(p);
+            }
+        }
+        return entropy;
+    }
+
+    /// <summary>
+    /// Confidence: 1 - normalized entropy. 1.0 = certain, 0.0 = maximally uncertain.
+    /// </summary>
+    public float GetBeliefConfidence(int slot)
+    {
+        float maxEntropy = Mathf.Log(INTENT_COUNT);
+        float entropy = GetPosteriorEntropy(slot);
+        return 1f - Mathf.Clamp01(entropy / Mathf.Max(maxEntropy, 0.01f));
+    }
+
+    /// <summary>
+    /// Restore slot with intent history bias. Decodes bit-packed history
+    /// (8 intents, 2 bits each) and biases priors toward historically
+    /// dominant intents. FEP: the NPC retains learned patterns.
+    /// </summary>
+    public void RestoreSlotWithHistory(int slot, float trust, float kindness, int intentHistory)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return;
+        _slotTrust[slot] = Mathf.Clamp(trust, -1f, 1f);
+        _slotKindness[slot] = Mathf.Max(0f, kindness);
+
+        float countApproach = 0f;
+        float countNeutral = 0f;
+        float countThreat = 0f;
+        float countFriendly = 0f;
+
+        int hist = intentHistory;
+        for (int i = 0; i < 8; i++)
+        {
+            int intent = hist & 0x3;
+            hist = hist >> 2;
+            if (intent == INTENT_APPROACH) countApproach += 1f;
+            else if (intent == INTENT_NEUTRAL) countNeutral += 1f;
+            else if (intent == INTENT_THREAT) countThreat += 1f;
+            else if (intent == INTENT_FRIENDLY) countFriendly += 1f;
+        }
+
+        float totalCount = countApproach + countNeutral + countThreat + countFriendly;
+        if (totalCount > 0f)
+        {
+            float historyWeight = 0.3f;
+            float invTotal = 1f / totalCount;
+            int baseIdx = slot * INTENT_COUNT;
+            _posteriors[baseIdx + INTENT_APPROACH] = Mathf.Lerp(
+                _prior[INTENT_APPROACH], countApproach * invTotal, historyWeight);
+            _posteriors[baseIdx + INTENT_NEUTRAL] = Mathf.Lerp(
+                _prior[INTENT_NEUTRAL], countNeutral * invTotal, historyWeight);
+            _posteriors[baseIdx + INTENT_THREAT] = Mathf.Lerp(
+                _prior[INTENT_THREAT], countThreat * invTotal, historyWeight);
+            _posteriors[baseIdx + INTENT_FRIENDLY] = Mathf.Lerp(
+                _prior[INTENT_FRIENDLY], countFriendly * invTotal, historyWeight);
+            NormalizeSlotPosterior(slot);
+        }
+
+        UpdateDominantIntent(slot);
+    }
 }
