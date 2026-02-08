@@ -67,6 +67,9 @@ public class SessionMemory : UdonSharpBehaviour
     [UdonSynced] private int[] _memIntentHistory;  // last 8 intents bit-packed (2 bits each)
     [UdonSynced] private bool[] _memIsFriend;
     [UdonSynced] private int[] _memGiftCount;     // total gifts received from this player
+    [UdonSynced] private int[] _memPeakEmotion;  // strongest emotion experienced with this player
+    [UdonSynced] private float[] _memPeakEmotionIntensity; // intensity of peak emotion (0-1)
+    [UdonSynced] private int[] _memLastEmotion;  // emotion at time of departure
     [UdonSynced] private int _memCount;
 
     // Local-only: last-seen timestamps (not synced — relative to local Time.time)
@@ -84,6 +87,9 @@ public class SessionMemory : UdonSharpBehaviour
         _memIntentHistory = new int[MAX_MEMORY];
         _memIsFriend = new bool[MAX_MEMORY];
         _memGiftCount = new int[MAX_MEMORY];
+        _memPeakEmotion = new int[MAX_MEMORY];
+        _memPeakEmotionIntensity = new float[MAX_MEMORY];
+        _memLastEmotion = new int[MAX_MEMORY];
         _memLastSeenTime = new float[MAX_MEMORY];
         _memSlotActive = new bool[MAX_MEMORY];
         _memCount = 0;
@@ -214,6 +220,51 @@ public class SessionMemory : UdonSharpBehaviour
     {
         if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0;
         return _memGiftCount[memSlot];
+    }
+
+    /// <summary>Get peak emotion type for a memory slot.</summary>
+    public int GetMemoryPeakEmotion(int memSlot)
+    {
+        if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0;
+        return _memPeakEmotion[memSlot];
+    }
+
+    /// <summary>Get peak emotion intensity for a memory slot (0-1).</summary>
+    public float GetMemoryPeakEmotionIntensity(int memSlot)
+    {
+        if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0f;
+        return _memPeakEmotionIntensity[memSlot];
+    }
+
+    /// <summary>Get last emotion at departure for a memory slot.</summary>
+    public int GetMemoryLastEmotion(int memSlot)
+    {
+        if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0;
+        return _memLastEmotion[memSlot];
+    }
+
+    /// <summary>
+    /// Save emotional state for a player. Called alongside SavePlayer
+    /// to store the peak emotion experienced and the emotion at departure.
+    /// Updates peak if the new intensity exceeds the stored peak.
+    /// </summary>
+    public void SavePlayerEmotion(int playerId, int peakEmotion, float peakIntensity,
+                                   int lastEmotion)
+    {
+        if (!Networking.IsOwner(gameObject)) return;
+
+        int slot = FindMemorySlot(playerId);
+        if (slot < 0) return; // must be called after SavePlayer
+
+        // Only update peak if new intensity exceeds stored peak
+        if (peakIntensity > _memPeakEmotionIntensity[slot])
+        {
+            _memPeakEmotion[slot] = peakEmotion;
+            _memPeakEmotionIntensity[slot] = peakIntensity;
+        }
+        _memLastEmotion[slot] = lastEmotion;
+
+        RequestSerialization();
     }
 
     // ================================================================
@@ -370,7 +421,9 @@ public class SessionMemory : UdonSharpBehaviour
         string s = "Mem T:" + _memTrust[slot].ToString("F2") +
                    " K:" + _memKindness[slot].ToString("F1") +
                    " t:" + _memInteractionTime[slot].ToString("F0") + "s" +
-                   " G:" + _memGiftCount[slot].ToString();
+                   " G:" + _memGiftCount[slot].ToString() +
+                   " E:" + _memPeakEmotion[slot].ToString() +
+                   "(" + _memPeakEmotionIntensity[slot].ToString("F1") + ")";
         if (_memIsFriend[slot]) s += " [Friend]";
 
         return s;

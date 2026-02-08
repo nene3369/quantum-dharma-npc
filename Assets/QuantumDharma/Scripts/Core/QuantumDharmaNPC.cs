@@ -38,6 +38,9 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     [SerializeField] private BeliefState _beliefState;
     [SerializeField] private MarkovBlanket _markovBlanket;
 
+    [Header("Social References (optional)")]
+    [SerializeField] private NameGiving _nameGiving;
+
     [Header("Visual References")]
     [Tooltip("Transform to apply breathing scale oscillation (NPC model root)")]
     [SerializeField] private Transform _breathingTarget;
@@ -114,6 +117,10 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     private float _utteranceDisplayTimer; // time remaining to show current utterance
     private Vector3 _breathingBaseScale;
 
+    // Emotion tracking: peak emotion experienced with current focus player
+    private int _peakEmotion;
+    private float _peakEmotionIntensity; // 0-1 based on normalized FE at time of peak
+
     // Oscillation tracking: ring buffer of state change timestamps
     private const int OSC_BUFFER_SIZE = 16;
     private float[] _stateChangeTimestamps;
@@ -130,6 +137,8 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         _breathPhase = 0f;
         _utteranceTimer = 0f;
         _utteranceDisplayTimer = 0f;
+        _peakEmotion = EMOTION_CALM;
+        _peakEmotionIntensity = 0f;
 
         if (_breathingTarget != null)
         {
@@ -181,6 +190,19 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         // Select emotion from state-intent matrix
         int targetEmotion = SelectEmotion(npcState, dominantIntent, trust, focusSlot);
         _currentEmotion = targetEmotion;
+
+        // Track peak emotion: non-calm emotions with high FE are more intense
+        if (targetEmotion != EMOTION_CALM)
+        {
+            float intensity = normalizedFE;
+            if (targetEmotion == EMOTION_GRATEFUL) intensity = Mathf.Max(intensity, trust);
+            if (targetEmotion == EMOTION_WARM) intensity = Mathf.Max(intensity, trust * 0.8f);
+            if (intensity > _peakEmotionIntensity)
+            {
+                _peakEmotion = targetEmotion;
+                _peakEmotionIntensity = intensity;
+            }
+        }
 
         // Update particles
         UpdateParticles(targetEmotion, normalizedFE);
@@ -304,6 +326,24 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
 
         if (selectedIdx >= 0)
         {
+            // Nickname-aware display: occasionally prepend the player's nickname
+            if (_nameGiving != null && _manager != null && trust >= 0.5f)
+            {
+                VRCPlayerApi fp = _manager.GetFocusPlayer();
+                if (fp != null && fp.IsValid() && _nameGiving.HasNickname(fp.playerId))
+                {
+                    // 30% chance to use nickname
+                    if (Random.Range(0f, 1f) < 0.3f)
+                    {
+                        string nickname = _nameGiving.GetNickname(fp.playerId);
+                        string fullText = nickname + "... " + _utteranceTexts[selectedIdx];
+                        ForceDisplayText(fullText, _utteranceDuration);
+                        _utteranceTimer = 0f;
+                        return;
+                    }
+                }
+            }
+
             DisplayUtterance(selectedIdx);
             _utteranceTimer = 0f;
         }
@@ -447,62 +487,108 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
 
     private void InitializeVocabulary()
     {
-        _utteranceCount = 40;
+        // Vocabulary evolution: 64 words across 5 emotions.
+        // Higher trust unlocks longer, more personal phrases.
+        // Tier 0 (trust 0.0): minimal, instinctive reactions
+        // Tier 1 (trust 0.1-0.3): basic social words
+        // Tier 2 (trust 0.4-0.6): warm, personal phrases
+        // Tier 3 (trust 0.7-0.9): intimate, deep expressions
+        _utteranceCount = 64;
         _utteranceTexts = new string[_utteranceCount];
         _utteranceEmotions = new int[_utteranceCount];
         _utteranceTrustMin = new float[_utteranceCount];
 
         int i = 0;
 
-        // --- CALM (emotion 0) ---
-        SetUtterance(i++, "...",            EMOTION_CALM, 0f);
-        SetUtterance(i++, "ふぅ...",         EMOTION_CALM, 0f);
-        SetUtterance(i++, "静か...",         EMOTION_CALM, 0f);
-        SetUtterance(i++, "Quiet...",       EMOTION_CALM, 0f);
-        SetUtterance(i++, "穏やか...",       EMOTION_CALM, 0.2f);
-        SetUtterance(i++, "Peaceful...",    EMOTION_CALM, 0.2f);
-        SetUtterance(i++, "ここにいる",      EMOTION_CALM, 0.3f);
-        SetUtterance(i++, "I am here.",     EMOTION_CALM, 0.3f);
+        // --- CALM (emotion 0): 12 words ---
+        // Tier 0
+        SetUtterance(i++, "...",              EMOTION_CALM, 0f);
+        SetUtterance(i++, "ふぅ...",           EMOTION_CALM, 0f);
+        SetUtterance(i++, "静か...",           EMOTION_CALM, 0f);
+        SetUtterance(i++, "Quiet...",         EMOTION_CALM, 0f);
+        // Tier 1
+        SetUtterance(i++, "穏やか...",         EMOTION_CALM, 0.2f);
+        SetUtterance(i++, "Peaceful...",      EMOTION_CALM, 0.2f);
+        SetUtterance(i++, "ここにいる",        EMOTION_CALM, 0.3f);
+        SetUtterance(i++, "I am here.",       EMOTION_CALM, 0.3f);
+        // Tier 2
+        SetUtterance(i++, "安心する...",       EMOTION_CALM, 0.5f);
+        SetUtterance(i++, "I feel safe...",   EMOTION_CALM, 0.5f);
+        // Tier 3
+        SetUtterance(i++, "この時間が好き",    EMOTION_CALM, 0.7f);
+        SetUtterance(i++, "I love this moment", EMOTION_CALM, 0.7f);
 
-        // --- CURIOUS (emotion 1) ---
-        SetUtterance(i++, "ん?",            EMOTION_CURIOUS, 0f);
-        SetUtterance(i++, "あの...",         EMOTION_CURIOUS, 0.1f);
-        SetUtterance(i++, "Hmm...",         EMOTION_CURIOUS, 0.1f);
-        SetUtterance(i++, "なるほど...",      EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "I see...",       EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "面白い...",       EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "Interesting...", EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "誰?",           EMOTION_CURIOUS, 0f);
+        // --- CURIOUS (emotion 1): 14 words ---
+        // Tier 0
+        SetUtterance(i++, "ん?",              EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "誰?",             EMOTION_CURIOUS, 0f);
+        // Tier 1
+        SetUtterance(i++, "あの...",           EMOTION_CURIOUS, 0.1f);
+        SetUtterance(i++, "Hmm...",           EMOTION_CURIOUS, 0.1f);
+        SetUtterance(i++, "なるほど...",        EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "I see...",         EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "面白い...",         EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "Interesting...",   EMOTION_CURIOUS, 0.2f);
+        // Tier 2
+        SetUtterance(i++, "教えて?",          EMOTION_CURIOUS, 0.35f);
+        SetUtterance(i++, "Tell me?",         EMOTION_CURIOUS, 0.35f);
+        SetUtterance(i++, "知りたい...",       EMOTION_CURIOUS, 0.4f);
+        SetUtterance(i++, "I want to know...", EMOTION_CURIOUS, 0.4f);
+        // Tier 3
+        SetUtterance(i++, "あなたのこと...",    EMOTION_CURIOUS, 0.6f);
+        SetUtterance(i++, "About you...",     EMOTION_CURIOUS, 0.6f);
 
-        // --- WARM (emotion 2) ---
-        SetUtterance(i++, "やあ",           EMOTION_WARM, 0.15f);
-        SetUtterance(i++, "Hi",            EMOTION_WARM, 0.15f);
-        SetUtterance(i++, "こんにちは",      EMOTION_WARM, 0.2f);
-        SetUtterance(i++, "Hello",         EMOTION_WARM, 0.2f);
-        SetUtterance(i++, "ようこそ",       EMOTION_WARM, 0.3f);
-        SetUtterance(i++, "Welcome",       EMOTION_WARM, 0.3f);
-        SetUtterance(i++, "あたたかい...",   EMOTION_WARM, 0.4f);
-        SetUtterance(i++, "Warm...",        EMOTION_WARM, 0.4f);
+        // --- WARM (emotion 2): 14 words ---
+        // Tier 1
+        SetUtterance(i++, "やあ",             EMOTION_WARM, 0.15f);
+        SetUtterance(i++, "Hi",              EMOTION_WARM, 0.15f);
+        SetUtterance(i++, "こんにちは",        EMOTION_WARM, 0.2f);
+        SetUtterance(i++, "Hello",           EMOTION_WARM, 0.2f);
+        SetUtterance(i++, "ようこそ",         EMOTION_WARM, 0.3f);
+        SetUtterance(i++, "Welcome",         EMOTION_WARM, 0.3f);
+        // Tier 2
+        SetUtterance(i++, "来てくれた",        EMOTION_WARM, 0.35f);
+        SetUtterance(i++, "You came",         EMOTION_WARM, 0.35f);
+        SetUtterance(i++, "あたたかい...",     EMOTION_WARM, 0.4f);
+        SetUtterance(i++, "Warm...",          EMOTION_WARM, 0.4f);
+        SetUtterance(i++, "嬉しい...",        EMOTION_WARM, 0.45f);
+        SetUtterance(i++, "Happy...",         EMOTION_WARM, 0.45f);
+        // Tier 3
+        SetUtterance(i++, "一緒がいい",       EMOTION_WARM, 0.65f);
+        SetUtterance(i++, "Together is better", EMOTION_WARM, 0.65f);
 
-        // --- ANXIOUS (emotion 3) ---
-        SetUtterance(i++, "あっ...",        EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "えっ...",        EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "Oh...",         EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "こわい...",      EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "Scared...",     EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "待って...",      EMOTION_ANXIOUS, 0.1f);
-        SetUtterance(i++, "Wait...",       EMOTION_ANXIOUS, 0.1f);
-        SetUtterance(i++, "大丈夫?",       EMOTION_ANXIOUS, 0.2f);
+        // --- ANXIOUS (emotion 3): 12 words ---
+        // Tier 0
+        SetUtterance(i++, "あっ...",          EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "えっ...",          EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Oh...",           EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "こわい...",        EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Scared...",       EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "近い...",          EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Too close...",    EMOTION_ANXIOUS, 0f);
+        // Tier 1
+        SetUtterance(i++, "待って...",        EMOTION_ANXIOUS, 0.1f);
+        SetUtterance(i++, "Wait...",         EMOTION_ANXIOUS, 0.1f);
+        SetUtterance(i++, "そっとして...",     EMOTION_ANXIOUS, 0.15f);
+        SetUtterance(i++, "Be gentle...",    EMOTION_ANXIOUS, 0.15f);
+        // Tier 2
+        SetUtterance(i++, "大丈夫?",         EMOTION_ANXIOUS, 0.25f);
 
-        // --- GRATEFUL (emotion 4) ---
-        SetUtterance(i++, "ありがとう",     EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "Thank you",    EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "優しい...",      EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "Kind...",       EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "ともだち",       EMOTION_GRATEFUL, 0.6f);
-        SetUtterance(i++, "Friend",        EMOTION_GRATEFUL, 0.6f);
-        SetUtterance(i++, "大切",          EMOTION_GRATEFUL, 0.8f);
-        SetUtterance(i++, "好き",          EMOTION_GRATEFUL, 0.8f);
+        // --- GRATEFUL (emotion 4): 12 words ---
+        // Tier 2
+        SetUtterance(i++, "ありがとう",       EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "Thank you",       EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "優しい...",        EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "Kind...",         EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "ともだち",         EMOTION_GRATEFUL, 0.6f);
+        SetUtterance(i++, "Friend",          EMOTION_GRATEFUL, 0.6f);
+        // Tier 3
+        SetUtterance(i++, "宝物",            EMOTION_GRATEFUL, 0.7f);
+        SetUtterance(i++, "Treasure",        EMOTION_GRATEFUL, 0.7f);
+        SetUtterance(i++, "大切",            EMOTION_GRATEFUL, 0.8f);
+        SetUtterance(i++, "好き",            EMOTION_GRATEFUL, 0.8f);
+        SetUtterance(i++, "ずっと覚えてる",    EMOTION_GRATEFUL, 0.85f);
+        SetUtterance(i++, "I'll always remember", EMOTION_GRATEFUL, 0.85f);
     }
 
     private void SetUtterance(int index, string text, int emotion, float trustMin)
@@ -623,5 +709,30 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
             return _utteranceTexts[_syncedUtteranceIndex];
         }
         return "";
+    }
+
+    /// <summary>Peak emotion experienced with current focus player.</summary>
+    public int GetPeakEmotion()
+    {
+        return _peakEmotion;
+    }
+
+    /// <summary>Intensity of peak emotion (0-1).</summary>
+    public float GetPeakEmotionIntensity()
+    {
+        return _peakEmotionIntensity;
+    }
+
+    /// <summary>Reset peak emotion tracking (call when focus player changes).</summary>
+    public void ResetPeakEmotion()
+    {
+        _peakEmotion = EMOTION_CALM;
+        _peakEmotionIntensity = 0f;
+    }
+
+    /// <summary>Total vocabulary size (for debug).</summary>
+    public int GetVocabularySize()
+    {
+        return _utteranceCount;
     }
 }
