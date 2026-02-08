@@ -89,6 +89,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private NameGiving _nameGiving;
     [SerializeField] private Mythology _mythology;
 
+    [Header("Components — Speech (optional)")]
+    [SerializeField] private SpeechOrchestrator _speechOrchestrator;
+
     [Header("Components — Enhanced Behavior (optional)")]
     [SerializeField] private CompanionMemory _companionMemory;
     [SerializeField] private FarewellBehavior _farewellBehavior;
@@ -172,6 +175,17 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     private int[] _currentIds;             // pre-allocated buffer for current IDs
     private const int MAX_TRACK = 80;
 
+    // Named constants for tuning parameters (previously inline magic numbers)
+    private const float LONELINESS_BIAS_SCALE = 0.3f;
+    private const float CROWD_ANXIETY_SCALE = 1.5f;
+    private const float FOF_BONUS_SCALE = 3f;
+    private const float RITUAL_BIAS = 0.15f;
+    private const float NORM_CURIOSITY_BIAS = 0.2f;
+    private const float INDIRECT_KINDNESS_SCALE = 2f;
+    private const float CURIOSITY_APPROACH_SCALE = 0.5f;
+    private const float REP_BROADCAST_THRESHOLD = 0.3f;
+    private const float APPROACH_TRUST_FRIENDLY_SCALE = 0.5f;
+
     // Touch/gift state override: brief forced state after touch/gift events
     private bool _touchForcedRetreat;
     private float _touchRetreatUntil;
@@ -245,13 +259,31 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
     }
 
+    // Dynamic tick interval based on player load
+    private float _effectiveInterval;
+
     private void Update()
     {
         _decisionTimer += Time.deltaTime;
-        if (_decisionTimer < _decisionInterval) return;
+        _effectiveInterval = GetAdaptiveInterval();
+        if (_decisionTimer < _effectiveInterval) return;
         _decisionTimer = 0f;
 
         DecisionTick();
+    }
+
+    /// <summary>
+    /// Scales decision interval by tracked player count to bound O(n²) cost.
+    /// 0-8 players: base interval, 9-16: 1.5×, 17-32: 2×, 33+: 3×.
+    /// </summary>
+    private float GetAdaptiveInterval()
+    {
+        if (_playerSensor == null) return _decisionInterval;
+        int count = _playerSensor.GetTrackedPlayerCount();
+        if (count <= 8)  return _decisionInterval;
+        if (count <= 16) return _decisionInterval * 1.5f;
+        if (count <= 32) return _decisionInterval * 2f;
+        return _decisionInterval * 3f;
     }
 
     // ================================================================
@@ -451,7 +483,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                         }
 
                         // Broadcast reputation to other NPCs on departure
-                        if (_multiNPCRelay != null && Mathf.Abs(departTrust) >= 0.3f)
+                        if (_multiNPCRelay != null && Mathf.Abs(departTrust) >= REP_BROADCAST_THRESHOLD)
                         {
                             _multiNPCRelay.BroadcastReputation(oldId, departTrust);
                         }
@@ -964,41 +996,41 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         float curiosityBias = _curiosityDrive != null ? _curiosityDrive.GetCuriosityBias() : 0f;
 
         // Loneliness lowers the silence threshold (NPC becomes restless)
-        float lonelinessBias = _habitFormation != null ? _habitFormation.GetLonelinessSignal() * 0.3f : 0f;
+        float lonelinessBias = _habitFormation != null ? _habitFormation.GetLonelinessSignal() * LONELINESS_BIAS_SCALE : 0f;
 
         // Crowd anxiety raises the retreat threshold (NPC more sensitive)
-        float crowdAnxietyBias = _emotionalContagion != null ? _emotionalContagion.GetCrowdAnxiety() * 1.5f : 0f;
+        float crowdAnxietyBias = _emotionalContagion != null ? _emotionalContagion.GetCrowdAnxiety() * CROWD_ANXIETY_SCALE : 0f;
 
         // Friend-of-friend bonus reduces effective free energy for grouped players
         float fofReduction = 0f;
         if (_groupDynamics != null && _focusSlot >= 0)
         {
-            fofReduction = _groupDynamics.GetFriendOfFriendBonus(_focusSlot) * 3f;
+            fofReduction = _groupDynamics.GetFriendOfFriendBonus(_focusSlot) * FOF_BONUS_SCALE;
         }
 
         // Ritual participation bonus: lower action cost when ritual is active (shared rhythm)
         float ritualBias = 0f;
         if (_sharedRitual != null && _sharedRitual.IsRitualActive())
         {
-            ritualBias = 0.15f;
+            ritualBias = RITUAL_BIAS;
         }
 
         // Indirect kindness: reduce effective free energy for players with gift chain karma
         float indirectKindnessReduction = 0f;
         if (_giftEconomy != null && _focusPlayer != null && _focusPlayer.IsValid())
         {
-            indirectKindnessReduction = _giftEconomy.GetIndirectKindness(_focusPlayer.playerId) * 2f;
+            indirectKindnessReduction = _giftEconomy.GetIndirectKindness(_focusPlayer.playerId) * INDIRECT_KINDNESS_SCALE;
         }
 
         // Norm violation nudge: push toward Observe when behavior violates local norms
         float normCuriosityBias = 0f;
         if (_normFormation != null && _normFormation.HasNormViolation())
         {
-            normCuriosityBias = 0.2f;
+            normCuriosityBias = NORM_CURIOSITY_BIAS;
         }
 
         float effectiveActionCost = _actionCostThreshold - curiosityBias - lonelinessBias - ritualBias - normCuriosityBias;
-        float effectiveApproachThreshold = _approachThreshold - curiosityBias * 0.5f;
+        float effectiveApproachThreshold = _approachThreshold - curiosityBias * CURIOSITY_APPROACH_SCALE;
         float effectiveFreeEnergy = Mathf.Max(0f, _freeEnergy - fofReduction - indirectKindnessReduction);
         float effectiveRetreatThreshold = _retreatThreshold - crowdAnxietyBias;
 
@@ -1029,7 +1061,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             }
 
             // Friendly intent + trust → Approach with lower F requirement
-            if (intent == BeliefState.INTENT_FRIENDLY && trust >= _approachTrustMin * 0.5f)
+            if (intent == BeliefState.INTENT_FRIENDLY && trust >= _approachTrustMin * APPROACH_TRUST_FRIENDLY_SCALE)
             {
                 _npcState = NPC_STATE_APPROACH;
                 return;
@@ -1104,91 +1136,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         _npc.OnDecisionTick(_npcState, normalizedFE, trust, _dominantIntent, _focusSlot);
 
-        // Companion memory: express curiosity about missing companion
-        if (_companionMemory != null && _companionMemory.HasMissingCompanion() &&
-            _npcState == NPC_STATE_OBSERVE)
+        // Delegate speech, stories, trust adjustments to SpeechOrchestrator
+        if (_speechOrchestrator != null)
         {
-            int missingFor = _companionMemory.GetMissingCompanionForPlayer();
-            if (_focusPlayer != null && _focusPlayer.IsValid() &&
-                _focusPlayer.playerId == missingFor)
-            {
-                // Express curiosity about the absent companion
-                _npc.ForceDisplayText("...?", 3f);
-                _companionMemory.ClearMissingCompanionSignal();
-            }
-        }
-
-        // Oral history: tell stories when conditions are right
-        if (_oralHistory != null && _focusPlayer != null)
-        {
-            int npcEmotion = _npc != null ? _npc.GetCurrentEmotion() : 0;
-            if (_oralHistory.ShouldTellStory(_npcState, npcEmotion))
-            {
-                _oralHistory.TellStory();
-            }
-        }
-
-        // Mythology: tell legends during calm periods
-        if (_mythology != null && _focusPlayer != null &&
-            _npcState == NPC_STATE_SILENCE && _mythology.HasLegendToTell())
-        {
-            _mythology.TellLegend();
-        }
-
-        // Ritual trust bonus: apply when focus player is near an active ritual
-        if (_sharedRitual != null && _beliefState != null &&
-            _focusPlayer != null && _focusPlayer.IsValid())
-        {
-            float ritualBonus = _sharedRitual.GetRitualTrustBonus(_focusPlayer.playerId);
-            if (ritualBonus > 0f && _focusSlot >= 0)
-            {
-                _beliefState.AdjustSlotTrust(_focusSlot, ritualBonus);
-            }
-        }
-
-        // Legend trust bonus: legendary players get extra trust
-        if (_mythology != null && _beliefState != null &&
-            _focusPlayer != null && _focusSlot >= 0)
-        {
-            float legendBonus = _mythology.GetLegendTrustBonus(_focusPlayer.playerId);
-            if (legendBonus > 0f)
-            {
-                _beliefState.AdjustSlotTrust(_focusSlot, legendBonus);
-                _mythology.NotifyLegendPresent(_focusPlayer.playerId);
-            }
-        }
-
-        // Norm speech: NPC occasionally comments on observed norms during OBSERVE
-        if (_normFormation != null && _npc != null &&
-            _npcState == NPC_STATE_OBSERVE && _focusPlayer != null)
-        {
-            string normText = _normFormation.GetNormTextForPosition(transform.position);
-            if (normText.Length > 0 && Random.Range(0f, 1f) < 0.02f)
-            {
-                _npc.ForceDisplayText(normText, 4f);
-            }
-
-            // Also feed norms to OralHistory for story generation
-            if (_oralHistory != null)
-            {
-                _oralHistory.NotifyNormObservation(normText);
-            }
-        }
-
-        // Collective memory trust bias: new players known across village get small boost
-        if (_collectiveMemory != null && _beliefState != null &&
-            _focusPlayer != null && _focusPlayer.IsValid() && _focusSlot >= 0)
-        {
-            if (_collectiveMemory.IsWellKnown(_focusPlayer.playerId))
-            {
-                float collectiveTrust = _collectiveMemory.GetCollectiveTrust(_focusPlayer.playerId);
-                float slotTrust = _beliefState.GetSlotTrust(_focusSlot);
-                // Only boost if collective trust exceeds current (gentle pull toward village consensus)
-                if (collectiveTrust > slotTrust + 0.05f)
-                {
-                    _beliefState.AdjustSlotTrust(_focusSlot, 0.005f);
-                }
-            }
+            _speechOrchestrator.Tick(_npcState, _focusPlayer, _focusSlot);
         }
     }
 
@@ -1430,6 +1381,16 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public NPCMotor GetNPCMotor()
     {
         return _npcMotor;
+    }
+
+    public float GetEffectiveInterval()
+    {
+        return _effectiveInterval;
+    }
+
+    public SpeechOrchestrator GetSpeechOrchestrator()
+    {
+        return _speechOrchestrator;
     }
 
     public bool IsStageEnabled(int stage)

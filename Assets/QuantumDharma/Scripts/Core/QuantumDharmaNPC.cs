@@ -129,6 +129,12 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     private int _stateChangeCount;
     private bool _isOscillationSuppressed;
 
+    // Speech queue: FIFO for ForceDisplayText calls that arrive while speaking
+    private const int SPEECH_QUEUE_SIZE = 4;
+    private string[] _speechQueueTexts;
+    private float[] _speechQueueDurations;
+    private int _speechQueueCount;
+
     private void Start()
     {
         _currentEmotion = EMOTION_CALM;
@@ -155,6 +161,16 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         _stateChangeWriteIdx = 0;
         _stateChangeCount = 0;
         _isOscillationSuppressed = false;
+
+        // Speech queue
+        _speechQueueTexts = new string[SPEECH_QUEUE_SIZE];
+        _speechQueueDurations = new float[SPEECH_QUEUE_SIZE];
+        _speechQueueCount = 0;
+        for (int q = 0; q < SPEECH_QUEUE_SIZE; q++)
+        {
+            _speechQueueTexts[q] = "";
+            _speechQueueDurations[q] = 0f;
+        }
 
         InitializeVocabulary();
     }
@@ -371,16 +387,36 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
             if (_utteranceDisplayTimer <= 0f)
             {
                 _utteranceDisplayTimer = 0f;
+
+                // Pop next from speech queue if available (owner only)
+                if (Networking.IsOwner(gameObject) && _speechQueueCount > 0)
+                {
+                    string nextText = _speechQueueTexts[0];
+                    float nextDur = _speechQueueDurations[0];
+                    // Shift queue forward
+                    for (int q = 0; q < _speechQueueCount - 1; q++)
+                    {
+                        _speechQueueTexts[q] = _speechQueueTexts[q + 1];
+                        _speechQueueDurations[q] = _speechQueueDurations[q + 1];
+                    }
+                    _speechQueueCount--;
+                    if (_utteranceText != null)
+                    {
+                        _utteranceText.text = nextText;
+                        _utteranceText.gameObject.SetActive(true);
+                    }
+                    _utteranceDisplayTimer = nextDur;
+                    _syncedForceText = nextText;
+                    _syncedUtteranceIndex = -2;
+                    return;
+                }
+
                 if (_utteranceText != null)
                 {
                     _utteranceText.text = "";
                     _utteranceText.gameObject.SetActive(false);
                 }
                 _syncedUtteranceIndex = -1;
-                if (Networking.IsOwner(gameObject))
-                {
-                    // Continuous sync mode — no RequestSerialization needed
-                }
             }
         }
     }
@@ -669,15 +705,30 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     public void ForceDisplayText(string text, float duration)
     {
         if (!Networking.IsOwner(gameObject)) return;
-        if (text.Length == 0) return;
+        if (text == null || text.Length == 0) return;
 
+        float dur = duration > 0f ? duration : _utteranceDuration;
+
+        // If currently displaying, queue for later
+        if (_utteranceDisplayTimer > 0f)
+        {
+            if (_speechQueueCount < SPEECH_QUEUE_SIZE)
+            {
+                _speechQueueTexts[_speechQueueCount] = text;
+                _speechQueueDurations[_speechQueueCount] = dur;
+                _speechQueueCount++;
+            }
+            return;
+        }
+
+        // Display immediately
         if (_utteranceText != null)
         {
             _utteranceText.text = text;
             _utteranceText.gameObject.SetActive(true);
         }
-        _utteranceDisplayTimer = duration > 0f ? duration : _utteranceDuration;
-        _utteranceTimer = 0f; // reset cooldown
+        _utteranceDisplayTimer = dur;
+        _utteranceTimer = 0f;
 
         // Sync force text to remote clients
         _syncedForceText = text;

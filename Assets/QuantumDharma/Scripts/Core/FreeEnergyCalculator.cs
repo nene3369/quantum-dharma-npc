@@ -197,7 +197,36 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
                 return i;
             }
         }
-        return -1; // all slots full
+        // All slots full — evict the slot with the lowest free energy
+        int evictSlot = -1;
+        float lowestFE = float.MaxValue;
+        for (int i = 0; i < MAX_SLOTS; i++)
+        {
+            if (_slotActive[i] && _slotFreeEnergy[i] < lowestFE)
+            {
+                lowestFE = _slotFreeEnergy[i];
+                evictSlot = i;
+            }
+        }
+        if (evictSlot >= 0)
+        {
+            _slotActive[evictSlot] = false;
+            _slotPlayerIds[evictSlot] = playerId;
+            _slotActive[evictSlot] = true;
+            _slotFreeEnergy[evictSlot] = 0f;
+            _slotPrevFreeEnergy[evictSlot] = 0f;
+            for (int j = 0; j < _behaviorWindowSize; j++)
+            {
+                _velocityHistory[evictSlot * _behaviorWindowSize + j] = 0f;
+            }
+            _velocityHistoryIdx[evictSlot] = 0;
+            for (int c = 0; c < CH_COUNT; c++)
+            {
+                _pe[evictSlot * CH_COUNT + c] = 0f;
+            }
+            return evictSlot;
+        }
+        return -1;
     }
 
     /// <summary>Unregister a player slot.</summary>
