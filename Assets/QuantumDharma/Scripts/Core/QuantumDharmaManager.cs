@@ -351,7 +351,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         if (_playerSensor == null) return;
 
-        int count = _playerSensor.GetTrackedPlayerCount();
+        int count = Mathf.Min(_playerSensor.GetTrackedPlayerCount(), MAX_TRACK);
         if (count == 0) return;
 
         _focusPlayer = _playerSensor.GetClosestPlayer();
@@ -385,7 +385,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         if (_playerSensor == null) return;
         if (_freeEnergyCalculator == null && _beliefState == null) return;
 
-        int count = _playerSensor.GetTrackedPlayerCount();
+        int count = Mathf.Min(_playerSensor.GetTrackedPlayerCount(), MAX_TRACK);
 
         // Build current tracked ID list (re-use pre-allocated buffer)
         for (int i = 0; i < count; i++)
@@ -640,7 +640,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     {
         if (_playerSensor == null) return;
 
-        int count = _playerSensor.GetTrackedPlayerCount();
+        int count = Mathf.Min(_playerSensor.GetTrackedPlayerCount(), MAX_TRACK);
 
         // Feed observations to all registered slots
         for (int i = 0; i < count; i++)
@@ -723,7 +723,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     {
         if (_playerSensor == null) return;
 
-        int count = _playerSensor.GetTrackedPlayerCount();
+        int count = Mathf.Min(_playerSensor.GetTrackedPlayerCount(), MAX_TRACK);
         for (int i = 0; i < count; i++)
         {
             VRCPlayerApi p = _playerSensor.GetTrackedPlayer(i);

@@ -54,7 +54,13 @@ public class CompanionMemory : UdonSharpBehaviour
     private float[] _pairLastSeen;
     private int _pairCount;
 
-    // Missing companion signal
+    // Missing companion signal queue (supports multiple arrivals per tick)
+    private const int MAX_MISSING_SIGNALS = 4;
+    private int[] _missingForPlayerQueue;
+    private int[] _missingCompanionIdQueue;
+    private int _missingSignalCount;
+
+    // Legacy single-signal API (reads from queue head)
     private int _missingCompanionForPlayer;
     private int _missingCompanionId;
     private bool _hasMissingCompanion;
@@ -76,6 +82,9 @@ public class CompanionMemory : UdonSharpBehaviour
         _pairCount = 0;
 
         _presentIds = new int[MAX_PRESENT];
+        _missingForPlayerQueue = new int[MAX_MISSING_SIGNALS];
+        _missingCompanionIdQueue = new int[MAX_MISSING_SIGNALS];
+        _missingSignalCount = 0;
         _missingCompanionForPlayer = -1;
         _missingCompanionId = -1;
         _hasMissingCompanion = false;
@@ -153,10 +162,6 @@ public class CompanionMemory : UdonSharpBehaviour
     /// </summary>
     public void NotifyPlayerArrived(int playerId)
     {
-        _hasMissingCompanion = false;
-        _missingCompanionForPlayer = -1;
-        _missingCompanionId = -1;
-
         // Find strongest companion for this player
         int bestPair = -1;
         int bestCount = 0;
@@ -192,10 +197,24 @@ public class CompanionMemory : UdonSharpBehaviour
             }
         }
 
-        // Companion is missing
+        // Avoid duplicate signals for the same pair
+        for (int i = 0; i < _missingSignalCount; i++)
+        {
+            if (_missingForPlayerQueue[i] == playerId) return;
+        }
+
+        // Queue the missing companion signal
+        if (_missingSignalCount < MAX_MISSING_SIGNALS)
+        {
+            _missingForPlayerQueue[_missingSignalCount] = playerId;
+            _missingCompanionIdQueue[_missingSignalCount] = companionId;
+            _missingSignalCount++;
+        }
+
+        // Keep legacy single-signal API pointing at first entry
         _hasMissingCompanion = true;
-        _missingCompanionForPlayer = playerId;
-        _missingCompanionId = companionId;
+        _missingCompanionForPlayer = _missingForPlayerQueue[0];
+        _missingCompanionId = _missingCompanionIdQueue[0];
     }
 
     // ================================================================
@@ -270,12 +289,34 @@ public class CompanionMemory : UdonSharpBehaviour
         return _missingCompanionId;
     }
 
-    /// <summary>Clear the missing companion signal (after NPC reacts).</summary>
+    /// <summary>Clear the current missing companion signal (after NPC reacts).
+    /// Advances to the next queued signal if available.</summary>
     public void ClearMissingCompanionSignal()
     {
-        _hasMissingCompanion = false;
-        _missingCompanionForPlayer = -1;
-        _missingCompanionId = -1;
+        if (_missingSignalCount > 0)
+        {
+            // Shift queue forward
+            for (int i = 0; i < _missingSignalCount - 1; i++)
+            {
+                _missingForPlayerQueue[i] = _missingForPlayerQueue[i + 1];
+                _missingCompanionIdQueue[i] = _missingCompanionIdQueue[i + 1];
+            }
+            _missingSignalCount--;
+        }
+
+        if (_missingSignalCount > 0)
+        {
+            // Next signal in queue
+            _missingCompanionForPlayer = _missingForPlayerQueue[0];
+            _missingCompanionId = _missingCompanionIdQueue[0];
+            _hasMissingCompanion = true;
+        }
+        else
+        {
+            _hasMissingCompanion = false;
+            _missingCompanionForPlayer = -1;
+            _missingCompanionId = -1;
+        }
     }
 
     /// <summary>Number of tracked player pairs.</summary>
@@ -321,6 +362,12 @@ public class CompanionMemory : UdonSharpBehaviour
             }
         }
         return bestCount;
+    }
+
+    /// <summary>Number of pending missing companion signals in the queue.</summary>
+    public int GetMissingSignalCount()
+    {
+        return _missingSignalCount;
     }
 
     /// <summary>Number of pairs that qualify as companions.</summary>

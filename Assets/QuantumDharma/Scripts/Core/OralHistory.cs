@@ -257,15 +257,20 @@ public class OralHistory : UdonSharpBehaviour
     /// </summary>
     private void AddStory(int type, float strength)
     {
-        // Select a random template from the pool
+        if (type < 0 || type >= STORY_TYPE_COUNT) return;
+        if (_templateTexts == null) return;
+        int baseIdx = type * POOL_SIZE;
+        if (baseIdx + POOL_SIZE > _templateTexts.Length) return;
         int templateIdx = Random.Range(0, POOL_SIZE);
-        string text = _templateTexts[type * POOL_SIZE + templateIdx];
+        string text = _templateTexts[baseIdx + templateIdx];
+        if (text == null || text.Length == 0) return;
         AddStory(type, strength, text);
     }
 
     private void AddStory(int type, float strength, string customText)
     {
         if (_storyCount >= MAX_STORIES) return;
+        if (customText == null || customText.Length == 0) return;
 
         // Find an empty slot
         int slot = -1;
@@ -426,7 +431,13 @@ public class OralHistory : UdonSharpBehaviour
     /// </summary>
     public void NotifyNormObservation(string normText)
     {
-        if (normText.Length == 0) return;
+        if (normText == null || normText.Length == 0) return;
+        // Avoid duplicate norm stories for the same text
+        for (int i = 0; i < MAX_STORIES; i++)
+        {
+            if (_storyActive[i] && _storyType[i] == STORY_NORM && _storyText[i] == normText)
+                return;
+        }
         AddStory(STORY_NORM, 0.5f, normText);
     }
 }
