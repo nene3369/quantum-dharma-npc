@@ -41,6 +41,13 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── AttentionSystem           ← Empty GameObject (optional)
 ├── HabitFormation            ← Empty GameObject (optional)
 ├── MultiNPCRelay             ← Empty GameObject (optional)
+├── SharedRitual              ← Empty GameObject (optional)
+├── CollectiveMemory          ← Empty GameObject (optional)
+├── GiftEconomy               ← Empty GameObject (optional)
+├── NormFormation              ← Empty GameObject (optional)
+├── OralHistory               ← Empty GameObject (optional)
+├── NameGiving                ← Empty GameObject (optional)
+├── Mythology                 ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -529,6 +536,90 @@ No special components needed on the root. Position this where you want the NPC t
 5. **Multi-NPC setup:** For 2+ NPCs in the same world, wire each NPC's MultiNPCRelay as a peer of the others. NPC-A's relay goes into NPC-B's Peer 0 slot, and vice versa.
 6. **FEP interpretation:** Hierarchical Bayesian inference across agents. Each NPC is an independent inference engine. Reputation relay acts as an empirical prior: "another agent has already observed this player."
 
+### 2g-xvi. SharedRitual (optional)
+
+1. Create an empty child GameObject under the NPC root named `SharedRitual`
+2. Add **UdonBehaviour**
+3. Attach script: `SharedRitual.cs`
+4. Configure in Inspector:
+   - **Ritual Locations:** drag up to 4 Transform markers for gathering points
+   - **Ritual Radius:** 8.0 (distance from ritual location center for participation)
+   - **Player Sensor:** drag the PlayerSensor GameObject
+5. **Ritual location setup:**
+   - Create 1-4 empty child GameObjects as ritual locations (e.g., `RitualPoint0`, `RitualPoint1`, ...)
+   - Position them at meaningful gathering spots in the world (shrine, clearing, campfire)
+   - The NPC detects when players gather at these points and may initiate shared behaviors
+
+### 2g-xvii. CollectiveMemory (optional)
+
+1. Create an empty child GameObject under the NPC root named `CollectiveMemory`
+2. Add **UdonBehaviour**
+3. Attach script: `CollectiveMemory.cs`
+4. Configure in Inspector:
+   - **Local Memory:** drag this NPC's own SessionMemory GameObject
+   - **Peer Memory 0:** (optional) drag peer NPC's SessionMemory instance
+   - **Peer Memory 1:** (optional) drag peer NPC's SessionMemory instance
+   - **Peer Memory 2:** (optional) drag peer NPC's SessionMemory instance
+   - **Peer Memory 3:** (optional) drag peer NPC's SessionMemory instance
+5. **Multi-NPC setup:** For worlds with multiple NPCs, wire each peer NPC's SessionMemory into the Peer Memory slots. This allows the NPC to access shared relationship data across the collective.
+
+### 2g-xviii. GiftEconomy (optional)
+
+1. Create an empty child GameObject under the NPC root named `GiftEconomy`
+2. Add **UdonBehaviour**
+3. Attach script: `GiftEconomy.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+5. **FEP interpretation:** The gift economy tracks patterns of generosity and reciprocity across players. The NPC models giving behavior as a predictive signal — repeated gift-givers reduce prediction error, while the NPC may develop expectations around gift exchange patterns.
+
+### 2g-xix. NormFormation (optional)
+
+1. Create an empty child GameObject under the NPC root named `NormFormation`
+2. Add **UdonBehaviour**
+3. Attach script: `NormFormation.cs`
+4. Configure in Inspector:
+   - **Zone Transforms:** drag up to 8 Transform markers for behavioral zones
+   - **Zone Radius:** 5.0 (radius of each behavioral zone)
+   - **Player Sensor:** drag the PlayerSensor GameObject
+5. **Zone setup:**
+   - Create 1-8 empty child GameObjects as zone markers (e.g., `Zone0`, `Zone1`, ...)
+   - Position them at areas where you want the NPC to track behavioral norms
+   - The NPC learns what behavior is "normal" in each zone and adjusts expectations accordingly
+
+### 2g-xx. OralHistory (optional)
+
+1. Create an empty child GameObject under the NPC root named `OralHistory`
+2. Add **UdonBehaviour**
+3. Attach script: `OralHistory.cs`
+4. Configure in Inspector:
+   - **Habit Formation:** drag the HabitFormation GameObject
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+5. **How it works:** OralHistory draws from visit patterns (HabitFormation) and relationship data (SessionMemory) to generate narrative accounts of the NPC's history. The NPC "remembers" significant events and can reference them in speech via QuantumDharmaNPC.
+
+### 2g-xxi. NameGiving (optional)
+
+1. Create an empty child GameObject under the NPC root named `NameGiving`
+2. Add **UdonBehaviour**
+3. Attach script: `NameGiving.cs`
+4. Configure in Inspector:
+   - **Habit Formation:** drag the HabitFormation GameObject
+   - **Session Memory:** drag the SessionMemory GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Gift Receiver:** drag the GiftReceiver GameObject
+5. **How it works:** The NPC assigns internal "names" (labels/archetypes) to players based on their behavioral patterns, relationship history, and gift-giving behavior. These names reflect the NPC's subjective experience of each player.
+
+### 2g-xxii. Mythology (optional)
+
+1. Create an empty child GameObject under the NPC root named `Mythology`
+2. Add **UdonBehaviour**
+3. Attach script: `Mythology.cs`
+4. Configure in Inspector:
+   - **Collective Memory:** drag the CollectiveMemory GameObject
+   - **Name Giving:** drag the NameGiving GameObject
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+5. **How it works:** Mythology synthesizes collective memory and player archetypes (from NameGiving) into narrative structures — recurring themes, "legends" about memorable players, and emergent world-lore. The NPC can reference these mythological elements in speech.
+
 ### 2i. NPCMotor
 
 1. Add **UdonBehaviour**
@@ -577,6 +668,15 @@ No special components needed on the root. Position this where you want the NPC t
    - **Attention System:** (optional) drag AttentionSystem
    - **Habit Formation:** (optional) drag HabitFormation
    - **Multi NPC Relay:** (optional) drag MultiNPCRelay
+   - **Culture:**
+   - **Shared Ritual:** (optional) drag SharedRitual
+   - **Collective Memory:** (optional) drag CollectiveMemory
+   - **Gift Economy:** (optional) drag GiftEconomy
+   - **Norm Formation:** (optional) drag NormFormation
+   - **Oral History:** (optional) drag OralHistory
+   - **Mythology:**
+   - **Name Giving:** (optional) drag NameGiving
+   - **Mythology:** (optional) drag Mythology
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -637,6 +737,13 @@ No special components needed on the root. Position this where you want the NPC t
    - **Attention System:** (optional) drag AttentionSystem
    - **Habit Formation:** (optional) drag HabitFormation
    - **Multi NPC Relay:** (optional) drag MultiNPCRelay
+   - **Shared Ritual:** (optional) drag SharedRitual
+   - **Collective Memory:** (optional) drag CollectiveMemory
+   - **Gift Economy:** (optional) drag GiftEconomy
+   - **Norm Formation:** (optional) drag NormFormation
+   - **Oral History:** (optional) drag OralHistory
+   - **Name Giving:** (optional) drag NameGiving
+   - **Mythology:** (optional) drag Mythology
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -778,7 +885,14 @@ QuantumDharmaManager
   ├─→ EmotionalContagion       (optional: reads crowd anxiety for retreat threshold)
   ├─→ AttentionSystem          (optional: reads attention focus for gaze)
   ├─→ HabitFormation           (optional: reads loneliness for silence threshold, notifies arrival/departure)
-  └─→ MultiNPCRelay            (optional: broadcasts reputation on departure, reads prior shift on arrival)
+  ├─→ MultiNPCRelay            (optional: broadcasts reputation on departure, reads prior shift on arrival)
+  ├─→ SharedRitual             (optional: reads ritual gathering state)
+  ├─→ CollectiveMemory         (optional: reads collective relationship data)
+  ├─→ GiftEconomy              (optional: reads gift exchange patterns)
+  ├─→ NormFormation            (optional: reads behavioral norms per zone)
+  ├─→ OralHistory              (optional: reads narrative history for speech)
+  ├─→ NameGiving               (optional: reads player archetypes)
+  └─→ Mythology                (optional: reads mythological narratives for speech)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -809,7 +923,14 @@ DebugOverlay
   ├─→ EmotionalContagion       (optional: reads crowd mood, anxiety, warmth)
   ├─→ AttentionSystem          (optional: reads attention focus, level, precision multiplier)
   ├─→ HabitFormation           (optional: reads habit count, loneliness, absent count)
-  └─→ MultiNPCRelay            (optional: reads relay count, peer count)
+  ├─→ MultiNPCRelay            (optional: reads relay count, peer count)
+  ├─→ SharedRitual             (optional: reads ritual state + active count)
+  ├─→ CollectiveMemory         (optional: reads collective memory entries)
+  ├─→ GiftEconomy              (optional: reads gift exchange data)
+  ├─→ NormFormation            (optional: reads norm strength + zone data)
+  ├─→ OralHistory              (optional: reads history entries + narration state)
+  ├─→ NameGiving               (optional: reads assigned names + archetype data)
+  └─→ Mythology                (optional: reads mythology entries + active narrative)
 
 GroupDynamics
   ├─→ PlayerSensor             (reads tracked player positions for clustering)
@@ -834,6 +955,38 @@ MultiNPCRelay
   ├─→ Peer 1                   (optional: other NPC's MultiNPCRelay)
   ├─→ Peer 2                   (optional: other NPC's MultiNPCRelay)
   └─→ Peer 3                   (optional: other NPC's MultiNPCRelay)
+
+SharedRitual
+  └─→ PlayerSensor             (reads tracked player positions for gathering detection)
+
+CollectiveMemory
+  ├─→ SessionMemory            (reads local NPC relationship data)
+  ├─→ Peer Memory 0            (optional: peer NPC's SessionMemory)
+  ├─→ Peer Memory 1            (optional: peer NPC's SessionMemory)
+  ├─→ Peer Memory 2            (optional: peer NPC's SessionMemory)
+  └─→ Peer Memory 3            (optional: peer NPC's SessionMemory)
+
+GiftEconomy
+  └─→ PlayerSensor             (reads tracked players for gift exchange tracking)
+
+NormFormation
+  └─→ PlayerSensor             (reads tracked player positions for zone behavior analysis)
+
+OralHistory
+  ├─→ HabitFormation           (reads visit patterns for historical narrative)
+  ├─→ SessionMemory            (reads relationship data for historical narrative)
+  └─→ QuantumDharmaNPC         (calls ForceDisplayText for history speech)
+
+NameGiving
+  ├─→ HabitFormation           (reads visit patterns for archetype assignment)
+  ├─→ SessionMemory            (reads relationship history for naming)
+  ├─→ BeliefState              (reads intent posteriors for behavioral classification)
+  └─→ GiftReceiver             (reads gift history for naming)
+
+Mythology
+  ├─→ CollectiveMemory         (reads collective data for myth synthesis)
+  ├─→ NameGiving               (reads player archetypes for narrative roles)
+  └─→ QuantumDharmaNPC         (calls ForceDisplayText for mythological speech)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -956,6 +1109,24 @@ FreeEnergyVisualizer
 - [ ] Place 2 NPCs in world, wire their MultiNPCRelay as peers
 - [ ] Build trust with NPC-A, then approach NPC-B — verify NPC-B has slight trust prior
 - [ ] Check "Relay:" line in DebugOverlay showing peer count and relay entries
+- [ ] Place 2+ players at a ritual location (within 8m radius) — verify SharedRitual detects gathering
+- [ ] Move players away from ritual location — verify ritual state deactivates
+- [ ] Check "Ritual:" line in DebugOverlay showing active ritual + participant count
+- [ ] With multiple NPCs wired as peers — verify CollectiveMemory aggregates relationship data across NPCs
+- [ ] Check "CollMem:" line in DebugOverlay showing collective memory entries + peer count
+- [ ] Give gifts to NPC repeatedly — verify GiftEconomy tracks gift exchange patterns
+- [ ] Multiple players give gifts — verify gift economy distinguishes between givers
+- [ ] Check "GiftEcon:" line in DebugOverlay showing gift exchange data
+- [ ] Stand in a behavioral zone and act consistently — verify NormFormation learns expected behavior
+- [ ] Violate a learned norm — verify NPC surprise increases (norm prediction error)
+- [ ] Check "Norms:" line in DebugOverlay showing norm strength + zone data
+- [ ] Visit NPC many times with established habits — verify OralHistory generates narrative references
+- [ ] Check "History:" line in DebugOverlay showing history entries + narration state
+- [ ] Build a relationship over multiple visits — verify NameGiving assigns an archetype
+- [ ] Different behavior patterns — verify different archetypes are assigned
+- [ ] Check "Names:" line in DebugOverlay showing assigned names + archetype data
+- [ ] With CollectiveMemory and NameGiving active — verify Mythology synthesizes narrative elements
+- [ ] Check "Myth:" line in DebugOverlay showing mythology entries + active narrative
 
 ---
 
@@ -981,3 +1152,10 @@ FreeEnergyVisualizer
 - AttentionSystem: updates every 0.5s; normalization pass over 16 slots — negligible
 - HabitFormation: updates every 10s; loops over 32 habit slots with histogram peak detection — very lightweight
 - MultiNPCRelay: checks every 2s; iterates 4 peers max — negligible overhead
+- SharedRitual: periodic check against up to 4 ritual locations with player distance checks — lightweight
+- CollectiveMemory: reads from up to 4 peer SessionMemory instances on demand — no continuous tick cost
+- GiftEconomy: event-driven (triggers on gift events); no per-frame cost when idle
+- NormFormation: periodic zone checks against up to 8 zones; simple distance + behavior classification — lightweight
+- OralHistory: generates narratives on demand from existing data — no ongoing tick cost
+- NameGiving: event-driven archetype assignment; no per-frame cost when idle
+- Mythology: synthesizes on demand from CollectiveMemory + NameGiving data — no continuous tick cost

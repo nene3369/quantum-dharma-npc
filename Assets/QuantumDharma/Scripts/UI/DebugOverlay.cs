@@ -64,6 +64,17 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private HabitFormation _habitFormation;
     [SerializeField] private MultiNPCRelay _multiNPCRelay;
 
+    [Header("References — Culture (optional)")]
+    [SerializeField] private SharedRitual _sharedRitual;
+    [SerializeField] private CollectiveMemory _collectiveMemory;
+    [SerializeField] private GiftEconomy _giftEconomy;
+    [SerializeField] private NormFormation _normFormation;
+
+    [Header("References — Mythology (optional)")]
+    [SerializeField] private OralHistory _oralHistory;
+    [SerializeField] private NameGiving _nameGiving;
+    [SerializeField] private Mythology _mythology;
+
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
     [SerializeField] private Text _stateLabel;
@@ -608,6 +619,69 @@ public class DebugOverlay : UdonSharpBehaviour
             {
                 details += "\nRelay peers:" + _multiNPCRelay.GetPeerCount().ToString() +
                     " entries:" + _multiNPCRelay.GetRelayCount().ToString();
+            }
+
+            // Shared ritual line
+            if (_sharedRitual != null)
+            {
+                details += "\nRitual:" + _sharedRitual.GetActiveRitualCount().ToString() + " active";
+                if (_sharedRitual.IsRitualActive()) details += " [ACTIVE]";
+            }
+
+            // Collective memory line
+            if (_collectiveMemory != null)
+            {
+                details += "\nCollective:" + _collectiveMemory.GetCollectiveCount().ToString() +
+                    " avgT:" + _collectiveMemory.GetVillageAverageTrust().ToString("F2");
+            }
+
+            // Gift economy line
+            if (_giftEconomy != null)
+            {
+                details += "\nGiftChains:" + _giftEconomy.GetActiveChainCount().ToString();
+            }
+
+            // Norm formation line
+            if (_normFormation != null)
+            {
+                details += "\nNorms:" + _normFormation.GetActiveZoneCount().ToString() + " zones";
+                if (_normFormation.HasNormViolation())
+                {
+                    int vz = _normFormation.GetViolationZone();
+                    details += " [Violation z:" + vz.ToString() + "]";
+                }
+            }
+
+            // Oral history line
+            if (_oralHistory != null)
+            {
+                details += "\nStories:" + _oralHistory.GetStoryCount().ToString();
+                if (_oralHistory.HasStoryToTell()) details += " [Ready]";
+                string lastStory = _oralHistory.GetLastStoryText();
+                if (lastStory.Length > 0) details += " \"" + lastStory + "\"";
+            }
+
+            // Name giving line
+            if (_nameGiving != null)
+            {
+                details += "\nNamed:" + _nameGiving.GetNamedCount().ToString();
+                VRCPlayerApi fpN = _manager.GetFocusPlayer();
+                if (fpN != null && fpN.IsValid() && _nameGiving.HasNickname(fpN.playerId))
+                {
+                    details += " [" + _nameGiving.GetNickname(fpN.playerId) + "]";
+                }
+            }
+
+            // Mythology line
+            if (_mythology != null)
+            {
+                details += "\nLegends:" + _mythology.GetLegendCount().ToString();
+                if (_mythology.HasLegendToTell()) details += " [Ready]";
+                VRCPlayerApi fpM = _manager.GetFocusPlayer();
+                if (fpM != null && fpM.IsValid() && _mythology.IsLegend(fpM.playerId))
+                {
+                    details += " [LEGEND: " + _mythology.GetLegendTitle(fpM.playerId) + "]";
+                }
             }
 
             _detailsLabel.text = details;

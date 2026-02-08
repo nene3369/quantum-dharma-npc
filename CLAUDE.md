@@ -36,7 +36,7 @@
                └──────────────────┬──────────────────┘
                                   │ observations
                ┌──────────────────▼──────────────────┐
-               │          Core Layer (15)              │
+               │          Core Layer (22)              │
                │                                      │
                │  QuantumDharmaManager (orchestrator)  │
                │  FreeEnergyCalculator (5-ch PE)       │
@@ -53,6 +53,13 @@
                │  AttentionSystem (precision alloc)    │
                │  HabitFormation (temporal predict)    │
                │  MultiNPCRelay (NPC trust relay)      │
+               │  SharedRitual (gathering rituals)     │
+               │  CollectiveMemory (village memory)    │
+               │  GiftEconomy (kindness chains)        │
+               │  NormFormation (behavioral norms)     │
+               │  OralHistory (story narration)        │
+               │  NameGiving (player nicknames)        │
+               │  Mythology (legend creation)          │
                └──────┬──────────┬──────────┬────────┘
                       │          │          │
                ┌──────▼──┐  ┌───▼──────┐  ┌▼────────────┐
@@ -95,9 +102,17 @@ AttentionSystem ──precision─→ FreeEnergyCalculator (per-slot multiplier)
 HabitFormation ──loneliness─→ Manager (silence threshold shift)
 MultiNPCRelay ──prior shift─→ BeliefState (trust prior on registration)
 MultiNPCRelay ──reputation──→ Peer NPCs (cross-NPC trust relay)
+SharedRitual ──ritual bonus──→ Manager (trust bonus for participants)
+CollectiveMemory ──consensus──→ Mythology (legend detection)
+CollectiveMemory ──village trust──→ Manager (initial trust bias)
+GiftEconomy ──indirect karma──→ Manager (free energy reduction)
+NormFormation ──violation──→ Manager (curiosity nudge)
+OralHistory ──story text──→ QuantumDharmaNPC (ForceDisplayText)
+NameGiving ──nickname──→ QuantumDharmaNPC (personalized greeting)
+Mythology ──legend tale──→ QuantumDharmaNPC (ForceDisplayText)
 ```
 
-### Component Inventory (32 scripts)
+### Component Inventory (39 scripts)
 
 #### Perception Layer (7)
 
@@ -111,7 +126,7 @@ MultiNPCRelay ──reputation──→ Peer NPCs (cross-NPC trust relay)
 | `GiftReceiver.cs` | None | Detects dropped VRC_Pickup objects as gifts, habituation model |
 | `VoiceDetector.cs` | None | Behavioral engagement proxy (proximity + gaze + stillness) |
 
-#### Core Layer (15)
+#### Core Layer (22)
 
 | Script | Sync Mode | Role |
 |---|---|---|
@@ -130,6 +145,13 @@ MultiNPCRelay ──reputation──→ Peer NPCs (cross-NPC trust relay)
 | `AttentionSystem.cs` | None | Finite attention budget allocation, precision multiplier per slot |
 | `HabitFormation.cs` | None | Visit pattern learning, temporal prediction, loneliness signal |
 | `MultiNPCRelay.cs` | None | NPC-to-NPC reputation relay, Bayesian prior shift for new players |
+| `SharedRitual.cs` | None | Temporal-spatial gathering rituals, trust bonus for participants |
+| `CollectiveMemory.cs` | None | Village-level aggregated memories across NPCs |
+| `GiftEconomy.cs` | None | Indirect kindness chains from gift-giving |
+| `NormFormation.cs` | None | Location-based behavioral norm emergence |
+| `OralHistory.cs` | None | Narrates accumulated memories as stories |
+| `NameGiving.cs` | None | Internal nicknames for befriended players |
+| `Mythology.cs` | None | Cross-NPC legend creation from collective memory |
 
 #### Action Layer (7)
 
@@ -157,7 +179,7 @@ MultiNPCRelay ──reputation──→ Peer NPCs (cross-NPC trust relay)
 Assets/
 ├── QuantumDharma/
 │   ├── Scripts/
-│   │   ├── Core/                     # 10 scripts
+│   │   ├── Core/                     # 22 scripts
 │   │   │   ├── QuantumDharmaManager.cs
 │   │   │   ├── FreeEnergyCalculator.cs
 │   │   │   ├── BeliefState.cs
@@ -167,7 +189,19 @@ Assets/
 │   │   │   ├── DreamNarrative.cs
 │   │   │   ├── AdaptivePersonality.cs
 │   │   │   ├── CuriosityDrive.cs
-│   │   │   └── ContextualUtterance.cs
+│   │   │   ├── ContextualUtterance.cs
+│   │   │   ├── GroupDynamics.cs
+│   │   │   ├── EmotionalContagion.cs
+│   │   │   ├── AttentionSystem.cs
+│   │   │   ├── HabitFormation.cs
+│   │   │   ├── MultiNPCRelay.cs
+│   │   │   ├── SharedRitual.cs
+│   │   │   ├── CollectiveMemory.cs
+│   │   │   ├── GiftEconomy.cs
+│   │   │   ├── NormFormation.cs
+│   │   │   ├── OralHistory.cs
+│   │   │   ├── NameGiving.cs
+│   │   │   └── Mythology.cs
 │   │   ├── Perception/               # 7 scripts
 │   │   │   ├── PlayerSensor.cs
 │   │   │   ├── MarkovBlanket.cs

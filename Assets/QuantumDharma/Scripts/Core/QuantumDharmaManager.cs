@@ -78,6 +78,17 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private HabitFormation _habitFormation;
     [SerializeField] private MultiNPCRelay _multiNPCRelay;
 
+    [Header("Components — Culture (optional)")]
+    [SerializeField] private SharedRitual _sharedRitual;
+    [SerializeField] private CollectiveMemory _collectiveMemory;
+    [SerializeField] private GiftEconomy _giftEconomy;
+    [SerializeField] private NormFormation _normFormation;
+
+    [Header("Components — Mythology (optional)")]
+    [SerializeField] private OralHistory _oralHistory;
+    [SerializeField] private NameGiving _nameGiving;
+    [SerializeField] private Mythology _mythology;
+
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
     // ================================================================
@@ -386,6 +397,11 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                 _habitFormation.NotifyPlayerArrived(id);
             }
 
+            // Notify culture/mythology systems of arrival
+            if (_sharedRitual != null) _sharedRitual.NotifyPlayerArrived();
+            if (_collectiveMemory != null) _collectiveMemory.NotifyPlayerSeen(id);
+            if (_mythology != null) _mythology.NotifyCandidatePlayer(id);
+
             if (_freeEnergyCalculator != null) _freeEnergyCalculator.RegisterPlayer(id);
             if (_beliefState != null)
             {
@@ -427,6 +443,31 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                         if (_gestureController != null && isFriend)
                         {
                             _gestureController.OnFriendReturned();
+                        }
+
+                        // Notify NameGiving of friend candidate
+                        if (_nameGiving != null && isFriend)
+                        {
+                            _nameGiving.NotifyCandidatePlayer(id);
+                        }
+
+                        // Legend greeting overrides normal greeting
+                        if (_mythology != null && _mythology.IsLegend(id))
+                        {
+                            string legendGreeting = _mythology.GetLegendGreeting(id);
+                            if (legendGreeting.Length > 0 && _npc != null)
+                            {
+                                _npc.ForceDisplayText(legendGreeting, 8f);
+                            }
+                        }
+                        // Named player greeting (if not a legend)
+                        else if (_nameGiving != null && _nameGiving.HasNickname(id))
+                        {
+                            string namedGreeting = _nameGiving.GetGreetingForNamed(id);
+                            if (namedGreeting.Length > 0 && _npc != null)
+                            {
+                                _npc.ForceDisplayText(namedGreeting, 6f);
+                            }
                         }
                     }
                     else
@@ -726,6 +767,18 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         {
             _gestureController.OnGiftReceived();
         }
+
+        // Notify gift economy (indirect kindness chains)
+        if (_giftEconomy != null)
+        {
+            _giftEconomy.NotifyGiftReceived(giftPlayerId);
+        }
+
+        // Notify oral history for gift stories
+        if (_oralHistory != null)
+        {
+            _oralHistory.NotifyGiftEvent();
+        }
     }
 
     // ================================================================
@@ -821,9 +874,30 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             fofReduction = _groupDynamics.GetFriendOfFriendBonus(_focusSlot) * 3f;
         }
 
-        float effectiveActionCost = _actionCostThreshold - curiosityBias - lonelinessBias;
+        // Ritual participation bonus: lower action cost when ritual is active (shared rhythm)
+        float ritualBias = 0f;
+        if (_sharedRitual != null && _sharedRitual.IsRitualActive())
+        {
+            ritualBias = 0.15f;
+        }
+
+        // Indirect kindness: reduce effective free energy for players with gift chain karma
+        float indirectKindnessReduction = 0f;
+        if (_giftEconomy != null && _focusPlayer != null && _focusPlayer.IsValid())
+        {
+            indirectKindnessReduction = _giftEconomy.GetIndirectKindness(_focusPlayer.playerId) * 2f;
+        }
+
+        // Norm violation nudge: push toward Observe when behavior violates local norms
+        float normCuriosityBias = 0f;
+        if (_normFormation != null && _normFormation.HasNormViolation())
+        {
+            normCuriosityBias = 0.2f;
+        }
+
+        float effectiveActionCost = _actionCostThreshold - curiosityBias - lonelinessBias - ritualBias - normCuriosityBias;
         float effectiveApproachThreshold = _approachThreshold - curiosityBias * 0.5f;
-        float effectiveFreeEnergy = Mathf.Max(0f, _freeEnergy - fofReduction);
+        float effectiveFreeEnergy = Mathf.Max(0f, _freeEnergy - fofReduction - indirectKindnessReduction);
         float effectiveRetreatThreshold = _retreatThreshold - crowdAnxietyBias;
 
         if (effectiveFreeEnergy < effectiveActionCost)
@@ -920,6 +994,47 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
 
         _npc.OnDecisionTick(_npcState, normalizedFE, trust, _dominantIntent, _focusSlot);
+
+        // Oral history: tell stories during calm periods with players present
+        if (_oralHistory != null && _focusPlayer != null &&
+            _npcState == NPC_STATE_SILENCE && _oralHistory.HasStoryToTell())
+        {
+            _oralHistory.TellStory();
+        }
+
+        // Mythology: tell legends during calm periods
+        if (_mythology != null && _focusPlayer != null &&
+            _npcState == NPC_STATE_SILENCE && _mythology.HasLegendToTell())
+        {
+            _mythology.TellLegend();
+        }
+
+        // Ritual trust bonus: apply when focus player is near an active ritual
+        if (_sharedRitual != null && _beliefState != null &&
+            _focusPlayer != null && _focusPlayer.IsValid())
+        {
+            float ritualBonus = _sharedRitual.GetRitualTrustBonus(_focusPlayer.playerId);
+            if (ritualBonus > 0f && _focusSlot >= 0)
+            {
+                _beliefState.AdjustSlotTrust(_focusSlot, ritualBonus);
+            }
+        }
+
+        // Collective memory trust bias: new players known across village get small boost
+        if (_collectiveMemory != null && _beliefState != null &&
+            _focusPlayer != null && _focusPlayer.IsValid() && _focusSlot >= 0)
+        {
+            if (_collectiveMemory.IsWellKnown(_focusPlayer.playerId))
+            {
+                float collectiveTrust = _collectiveMemory.GetCollectiveTrust(_focusPlayer.playerId);
+                float slotTrust = _beliefState.GetSlotTrust(_focusSlot);
+                // Only boost if collective trust exceeds current (gentle pull toward village consensus)
+                if (collectiveTrust > slotTrust + 0.05f)
+                {
+                    _beliefState.AdjustSlotTrust(_focusSlot, 0.005f);
+                }
+            }
+        }
     }
 
     // ================================================================
@@ -1105,5 +1220,40 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public MultiNPCRelay GetMultiNPCRelay()
     {
         return _multiNPCRelay;
+    }
+
+    public SharedRitual GetSharedRitual()
+    {
+        return _sharedRitual;
+    }
+
+    public CollectiveMemory GetCollectiveMemory()
+    {
+        return _collectiveMemory;
+    }
+
+    public GiftEconomy GetGiftEconomy()
+    {
+        return _giftEconomy;
+    }
+
+    public NormFormation GetNormFormation()
+    {
+        return _normFormation;
+    }
+
+    public OralHistory GetOralHistory()
+    {
+        return _oralHistory;
+    }
+
+    public NameGiving GetNameGiving()
+    {
+        return _nameGiving;
+    }
+
+    public Mythology GetMythology()
+    {
+        return _mythology;
     }
 }
