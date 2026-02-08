@@ -1,0 +1,15 @@
+# This workflow is intentionally disabled.
+# The original .NET Core Desktop template was added by mistake —
+# this is a Unity/UdonSharp project, not a .NET Desktop app.
+# See ci.yml for the correct CI workflow.
+
+name: .NET Core Desktop
+
+on:
+  workflow_dispatch: # manual trigger only — effectively disabled
+
+jobs:
+  skip:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "This workflow is disabled. See ci.yml instead."
