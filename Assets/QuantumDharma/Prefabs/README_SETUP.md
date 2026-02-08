@@ -1265,3 +1265,7 @@ FreeEnergyVisualizer
 - OralHistory: generates narratives on demand from existing data — no ongoing tick cost
 - NameGiving: event-driven archetype assignment; no per-frame cost when idle
 - Mythology: synthesizes on demand from CollectiveMemory + NameGiving data — no continuous tick cost
+- CompanionMemory: ticks every 1s; loops over 16 slots for co-presence pairing — lightweight; FIFO queue (max 4) is O(1) pop/push
+- FarewellBehavior: event-driven (triggers on player departure); no per-frame cost when idle
+- SpeechOrchestrator: called once per decision tick; delegates to speech sources with simple null checks — negligible overhead
+- QuantumDharmaNPC speech queue: FIFO array (max 4 entries); O(1) pop on display expiry — no measurable cost
