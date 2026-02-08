@@ -295,6 +295,33 @@ public class BeliefState : UdonSharpBehaviour
                 return i;
             }
         }
+        // All slots full — evict slot with lowest abs(trust) (least significant)
+        int evictSlot = -1;
+        float lowestSignificance = float.MaxValue;
+        for (int i = 0; i < MAX_SLOTS; i++)
+        {
+            if (_slotActive[i])
+            {
+                float sig = Mathf.Abs(_slotTrust[i]) + _slotKindness[i] * 0.1f;
+                if (sig < lowestSignificance)
+                {
+                    lowestSignificance = sig;
+                    evictSlot = i;
+                }
+            }
+        }
+        if (evictSlot >= 0)
+        {
+            _slotPlayerIds[evictSlot] = playerId;
+            _slotTrust[evictSlot] = 0f;
+            _slotKindness[evictSlot] = 0f;
+            _slotDominantIntent[evictSlot] = INTENT_NEUTRAL;
+            for (int j = 0; j < INTENT_COUNT; j++)
+            {
+                _posteriors[evictSlot * INTENT_COUNT + j] = _prior[j];
+            }
+            return evictSlot;
+        }
         return -1;
     }
 
@@ -394,7 +421,9 @@ public class BeliefState : UdonSharpBehaviour
         _scratchFeatures[FEAT_GIFT] = giftSignal;
         _scratchFeatures[FEAT_VOICE] = voiceSignal;
 
-        // Compute unnormalized posterior for each intent
+        // Compute unnormalized log-posterior for each intent
+        // Use log-sum-exp trick for numerical stability
+        float maxLogPosterior = -1e10f;
         for (int intent = 0; intent < INTENT_COUNT; intent++)
         {
             // Likelihood = product of Gaussian likelihoods across features
@@ -403,7 +432,7 @@ public class BeliefState : UdonSharpBehaviour
             {
                 int paramIdx = intent * FEAT_COUNT + f;
                 float mu = _likelihoodMu[paramIdx];
-                float sigma = _likelihoodSigma[paramIdx];
+                float sigma = Mathf.Max(_likelihoodSigma[paramIdx], 0.01f);
                 float x = _scratchFeatures[f];
 
                 // log Gaussian: -(x - μ)² / (2σ²)
@@ -411,12 +440,24 @@ public class BeliefState : UdonSharpBehaviour
                 logLikelihood += -(diff * diff) / (2f * sigma * sigma);
             }
 
+            // Clamp log-likelihood to prevent extreme values
+            logLikelihood = Mathf.Clamp(logLikelihood, -50f, 0f);
+
             // Use previous posterior as prior (recursive Bayes)
             float priorVal = _posteriors[baseIdx + intent];
-            // Posterior ∝ exp(logLikelihood) × prior
-            // Use log domain: log(posterior) = logLikelihood + log(prior)
             float logPrior = Mathf.Log(Mathf.Max(priorVal, 0.0001f));
-            _scratchPosterior[intent] = Mathf.Exp(logLikelihood + logPrior);
+            _scratchPosterior[intent] = logLikelihood + logPrior;
+
+            if (_scratchPosterior[intent] > maxLogPosterior)
+            {
+                maxLogPosterior = _scratchPosterior[intent];
+            }
+        }
+
+        // Exponentiate with max subtracted (log-sum-exp stabilization)
+        for (int intent = 0; intent < INTENT_COUNT; intent++)
+        {
+            _scratchPosterior[intent] = Mathf.Exp(_scratchPosterior[intent] - maxLogPosterior);
         }
 
         // Normalize
