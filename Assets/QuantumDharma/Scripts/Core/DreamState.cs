@@ -164,7 +164,7 @@ public class DreamState : UdonSharpBehaviour
         }
 
         // Gradually bring up dream particles
-        float t = Mathf.Clamp01(_phaseTimer / _drowsyDuration);
+        float t = Mathf.Clamp01(_phaseTimer / Mathf.Max(_drowsyDuration, 0.01f));
         SetDreamParticleIntensity(t);
 
         if (_phaseTimer >= _drowsyDuration)
@@ -310,7 +310,7 @@ public class DreamState : UdonSharpBehaviour
     public float GetWakeProgress()
     {
         if (_phase != PHASE_WAKING) return 1f;
-        return Mathf.Clamp01(_phaseTimer / _wakeDuration);
+        return Mathf.Clamp01(_phaseTimer / Mathf.Max(_wakeDuration, 0.01f));
     }
 
     /// <summary>Consume the pending wake event. Returns true if there was one.</summary>

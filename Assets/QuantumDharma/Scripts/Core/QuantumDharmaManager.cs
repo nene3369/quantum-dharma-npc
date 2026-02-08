@@ -427,7 +427,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                             giftCount
                         );
 
-                        // Save emotional memory
+                        // Save emotional memory and reset peak for next interaction
                         if (_npc != null)
                         {
                             _sessionMemory.SavePlayerEmotion(
@@ -436,19 +436,14 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                                 _npc.GetPeakEmotionIntensity(),
                                 _npc.GetCurrentEmotion()
                             );
+                            _npc.ResetPeakEmotion();
                         }
 
                         // Farewell behavior based on trust/friendship
                         if (_farewellBehavior != null)
                         {
-                            // Get last known position for this player
-                            Vector3 lastPos = transform.position;
-                            if (_playerSensor != null)
-                            {
-                                // Use NPC's own position as fallback
-                                // (player already left sensor range)
-                                lastPos = transform.position + transform.forward * 3f;
-                            }
+                            // Player already left sensor range — use NPC forward as fallback
+                            Vector3 lastPos = transform.position + transform.forward * 3f;
                             _farewellBehavior.NotifyPlayerDeparting(
                                 oldId, departTrust, wasFriend,
                                 _interactionTimes[i], lastPos
