@@ -467,4 +467,43 @@ public class NormFormation : UdonSharpBehaviour
         if (!_zoneActive[zoneIdx]) return 0f;
         return _zoneBehaviorCounts[zoneIdx * BEHAVIOR_COUNT + behavior];
     }
+
+    /// <summary>
+    /// Returns a norm description for the zone closest to a given position.
+    /// Used by Manager to feed situational awareness to NPC speech.
+    /// Returns empty string if no zone is nearby or no norm has formed.
+    /// </summary>
+    public string GetNormTextForPosition(Vector3 position)
+    {
+        float closestDistSqr = float.MaxValue;
+        int closestZone = -1;
+
+        for (int z = 0; z < _activeZoneCount; z++)
+        {
+            if (!_zoneActive[z]) continue;
+
+            float dx = position.x - _zonePositions[z].x;
+            float dz = position.z - _zonePositions[z].z;
+            float distSqr = dx * dx + dz * dz;
+            if (distSqr < closestDistSqr)
+            {
+                closestDistSqr = distSqr;
+                closestZone = z;
+            }
+        }
+
+        // Only return norm if NPC is within 15m of a zone
+        if (closestZone < 0 || closestDistSqr > 225f) return "";
+        if (!HasNorm(closestZone)) return "";
+
+        return GetNormDescription(closestZone);
+    }
+
+    /// <summary>Check if a zone has formed a norm.</summary>
+    public bool HasNorm(int zoneIdx)
+    {
+        if (zoneIdx < 0 || zoneIdx >= MAX_ZONES) return false;
+        if (!_zoneActive[zoneIdx]) return false;
+        return _zoneDominantBehavior[zoneIdx] >= 0 && _zoneTotalObs[zoneIdx] >= NORM_MIN_OBSERVATIONS;
+    }
 }

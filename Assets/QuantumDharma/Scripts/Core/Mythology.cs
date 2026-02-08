@@ -73,6 +73,7 @@ public class Mythology : UdonSharpBehaviour
     private int[] _legendNPCCount;         // [MAX_LEGENDS]
     private string[] _legendTitle;         // [MAX_LEGENDS]
     private string[] _legendTale;          // [MAX_LEGENDS]
+    private float[] _legendLastSeenTime;  // [MAX_LEGENDS] for decay
     private int _legendCount;
     private float _lastLegendToldTime;
 
@@ -96,6 +97,7 @@ public class Mythology : UdonSharpBehaviour
         _legendPlayerIds = new int[MAX_LEGENDS];
         _legendActive = new bool[MAX_LEGENDS];
         _legendTrust = new float[MAX_LEGENDS];
+        _legendLastSeenTime = new float[MAX_LEGENDS];
         _legendKindness = new float[MAX_LEGENDS];
         _legendNPCCount = new int[MAX_LEGENDS];
         _legendTitle = new string[MAX_LEGENDS];
@@ -158,6 +160,7 @@ public class Mythology : UdonSharpBehaviour
         _tickTimer = 0f;
 
         CheckForNewLegends();
+        DecayLegends();
     }
 
     // ================================================================
@@ -420,5 +423,64 @@ public class Mythology : UdonSharpBehaviour
         if (slot < 0) return "";
         return "\u4f1d\u8aac\u306e..." + _legendTitle[slot];
         // 伝説の... + title
+    }
+
+    // ================================================================
+    // Legend decay — legends fade if the player never returns
+    // ================================================================
+
+    private void DecayLegends()
+    {
+        float now = Time.time;
+        for (int i = 0; i < MAX_LEGENDS; i++)
+        {
+            if (!_legendActive[i]) continue;
+
+            float absence = now - _legendLastSeenTime[i];
+            if (absence < 300f) continue; // grace period: 5 min
+
+            // Slow decay: trust loses 0.01 per tick (60s)
+            _legendTrust[i] -= 0.01f;
+            _legendKindness[i] -= 0.05f;
+
+            // Remove legend if trust is fully decayed
+            if (_legendTrust[i] < 0.1f && _legendKindness[i] < 1f)
+            {
+                _legendActive[i] = false;
+                _legendPlayerIds[i] = -1;
+                if (_legendCount > 0) _legendCount--;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Notify that a legendary player is currently present.
+    /// Refreshes last-seen time to prevent decay.
+    /// </summary>
+    public void NotifyLegendPresent(int playerId)
+    {
+        int slot = FindLegendSlot(playerId);
+        if (slot < 0) return;
+        _legendLastSeenTime[slot] = Time.time;
+    }
+
+    /// <summary>
+    /// Returns a trust bonus [0, 0.1] for legendary players.
+    /// Used by Manager to give legends special treatment.
+    /// </summary>
+    public float GetLegendTrustBonus(int playerId)
+    {
+        int slot = FindLegendSlot(playerId);
+        if (slot < 0) return 0f;
+        return Mathf.Clamp(_legendTrust[slot] * 0.1f, 0f, 0.1f);
+    }
+
+    /// <summary>Get legend relevance [0, 1] based on recency.</summary>
+    public float GetLegendRelevance(int playerId)
+    {
+        int slot = FindLegendSlot(playerId);
+        if (slot < 0) return 0f;
+        float absence = Time.time - _legendLastSeenTime[slot];
+        return Mathf.Clamp01(1f - absence / 600f);
     }
 }

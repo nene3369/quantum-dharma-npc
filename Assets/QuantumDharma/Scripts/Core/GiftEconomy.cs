@@ -148,6 +148,11 @@ public class GiftEconomy : UdonSharpBehaviour
             // Accumulate indirect kindness for the beneficiary
             _AccumulateIndirectKindness(beneficiaryId, kindnessShare);
         }
+
+        // Record chain signal for narrative
+        _lastChainGiverPlayerId = giverPlayerId;
+        _lastChainBeneficiaryCount = numBeneficiaries;
+        _lastChainTime = Time.time;
     }
 
     /// <summary>
@@ -372,5 +377,31 @@ public class GiftEconomy : UdonSharpBehaviour
                 _indirectActive[i] = false;
             }
         }
+    }
+
+    // ================================================================
+    // Gift chain narrative signal
+    // ================================================================
+
+    private int _lastChainGiverPlayerId = -1;
+    private int _lastChainBeneficiaryCount;
+    private float _lastChainTime;
+
+    /// <summary>Whether a recent gift chain was created (within 30s).</summary>
+    public bool HasRecentGiftChain()
+    {
+        return _lastChainGiverPlayerId >= 0 && (Time.time - _lastChainTime) < 30f;
+    }
+
+    /// <summary>Player ID of the most recent gift giver.</summary>
+    public int GetLastChainGiverPlayerId()
+    {
+        return _lastChainGiverPlayerId;
+    }
+
+    /// <summary>Number of beneficiaries from the last gift chain.</summary>
+    public int GetLastChainBeneficiaryCount()
+    {
+        return _lastChainBeneficiaryCount;
     }
 }

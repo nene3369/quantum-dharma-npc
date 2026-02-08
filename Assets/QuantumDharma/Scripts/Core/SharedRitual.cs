@@ -60,6 +60,8 @@ public class SharedRitual : UdonSharpBehaviour
     private float[] _ritualStartTime;
     private float[] _ritualTargetHour;
     private float[] _ritualStrength;        // [0, 1]
+    private float[] _ritualCreationTime;    // Time.time when slot first created
+    private int[] _ritualActivationCount;   // how many times activated
     private int _activeRitualCount;
 
     // ================================================================
@@ -96,6 +98,8 @@ public class SharedRitual : UdonSharpBehaviour
         _ritualStartTime = new float[MAX_RITUALS];
         _ritualTargetHour = new float[MAX_RITUALS];
         _ritualStrength = new float[MAX_RITUALS];
+        _ritualCreationTime = new float[MAX_RITUALS];
+        _ritualActivationCount = new int[MAX_RITUALS];
         _activeRitualCount = 0;
 
         _arrivalBins = new float[TIME_BINS];
@@ -117,6 +121,8 @@ public class SharedRitual : UdonSharpBehaviour
             _ritualStartTime[i] = 0f;
             _ritualTargetHour[i] = -1f;
             _ritualStrength[i] = 0f;
+            _ritualCreationTime[i] = 0f;
+            _ritualActivationCount[i] = 0;
         }
 
         for (int i = 0; i < TIME_BINS; i++)
@@ -267,6 +273,8 @@ public class SharedRitual : UdonSharpBehaviour
                     _ritualStrength[r] = peakStr;
                     _ritualActive[r] = false;
                     _ritualStartTime[r] = 0f;
+                    _ritualCreationTime[r] = Time.time;
+                    _ritualActivationCount[r] = 0;
                     break;
                 }
             }
@@ -298,6 +306,8 @@ public class SharedRitual : UdonSharpBehaviour
                 {
                     _ritualTargetHour[r] = -1f;
                     _ritualStrength[r] = 0f;
+                    _ritualCreationTime[r] = 0f;
+                    _ritualActivationCount[r] = 0;
                 }
             }
         }
@@ -311,6 +321,7 @@ public class SharedRitual : UdonSharpBehaviour
     {
         _ritualActive[ritualIdx] = true;
         _ritualStartTime[ritualIdx] = Time.time;
+        _ritualActivationCount[ritualIdx]++;
 
         // Clear bonus tracking entries for this ritual index so
         // players can earn the bonus again in a new activation
@@ -485,11 +496,34 @@ public class SharedRitual : UdonSharpBehaviour
 
             if (distSqr <= radiusSqr)
             {
-                totalBonus += TRUST_BONUS_AMOUNT;
+                // Maturity scales the bonus: mature rituals grant up to 2x
+                float maturity = GetRitualMaturity(r);
+                totalBonus += TRUST_BONUS_AMOUNT * (1f + maturity);
                 RecordBonus(playerId, r);
             }
         }
 
         return totalBonus;
+    }
+
+    /// <summary>
+    /// Ritual maturity [0, 1]. Based on age and activation count.
+    /// Mature rituals grant larger trust bonuses.
+    /// </summary>
+    public float GetRitualMaturity(int ritualIdx)
+    {
+        if (ritualIdx < 0 || ritualIdx >= MAX_RITUALS) return 0f;
+        if (_ritualTargetHour[ritualIdx] < 0f) return 0f;
+        float age = Time.time - _ritualCreationTime[ritualIdx];
+        float ageFactor = Mathf.Clamp01(age / 600f);
+        float activationFactor = Mathf.Clamp01(_ritualActivationCount[ritualIdx] / 5f);
+        return ageFactor * 0.5f + activationFactor * 0.5f;
+    }
+
+    /// <summary>Get activation count for a ritual slot.</summary>
+    public int GetRitualActivationCount(int ritualIdx)
+    {
+        if (ritualIdx < 0 || ritualIdx >= MAX_RITUALS) return 0;
+        return _ritualActivationCount[ritualIdx];
     }
 }

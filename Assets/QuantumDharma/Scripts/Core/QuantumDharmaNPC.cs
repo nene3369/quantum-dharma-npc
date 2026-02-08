@@ -96,10 +96,11 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     // Synced state
     // ================================================================
     [UdonSynced] private int _syncedEmotion;
-    [UdonSynced] private int _syncedUtteranceIndex; // -1 = none
+    [UdonSynced] private int _syncedUtteranceIndex; // -1 = none, -2 = force text
+    [UdonSynced] private string _syncedForceText = ""; // for ForceDisplayText remote sync
 
     // ================================================================
-    // Utterance vocabulary (40 words)
+    // Utterance vocabulary (64 words)
     // Parallel arrays: text, emotion category, minimum trust threshold
     // ================================================================
     private string[] _utteranceTexts;
@@ -392,7 +393,16 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         {
             _utteranceText.text = _utteranceTexts[_syncedUtteranceIndex];
             _utteranceText.gameObject.SetActive(true);
-            // Keep display timer alive on remote
+            if (_utteranceDisplayTimer <= 0f)
+            {
+                _utteranceDisplayTimer = _utteranceDuration;
+            }
+        }
+        else if (_syncedUtteranceIndex == -2 && _syncedForceText.Length > 0)
+        {
+            // Force text from owner (nickname speech, contextual utterances, etc.)
+            _utteranceText.text = _syncedForceText;
+            _utteranceText.gameObject.SetActive(true);
             if (_utteranceDisplayTimer <= 0f)
             {
                 _utteranceDisplayTimer = _utteranceDuration;
@@ -669,8 +679,8 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
         _utteranceDisplayTimer = duration > 0f ? duration : _utteranceDuration;
         _utteranceTimer = 0f; // reset cooldown
 
-        // Sync: use index -2 to signal "external text" to remote clients
-        // Remote clients won't decode this, but the text will clear on timer
+        // Sync force text to remote clients
+        _syncedForceText = text;
         _syncedUtteranceIndex = -2;
         // Continuous sync mode — no RequestSerialization needed
     }

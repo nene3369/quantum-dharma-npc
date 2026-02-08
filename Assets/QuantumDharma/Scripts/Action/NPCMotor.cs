@@ -49,6 +49,7 @@ public class NPCMotor : UdonSharpBehaviour
     private Vector3 _spawnOrigin;
     private float _currentSpeed;
     private Vector3 _currentVelocity; // used by SmoothDamp-style logic
+    private float _trustSpeedModifier = 1f; // [0.3, 1.0] from trust
 
     // Synced position/rotation for non-owners
     [UdonSynced] private Vector3 _syncedPosition;
@@ -134,8 +135,9 @@ public class NPCMotor : UdonSharpBehaviour
         // Rotate toward target
         RotateToward(toTarget.normalized);
 
-        // Accelerate toward move speed
-        _currentSpeed = Mathf.MoveTowards(_currentSpeed, _moveSpeed, (_moveSpeed / Mathf.Max(_accelerationTime, 0.01f)) * Time.deltaTime);
+        // Accelerate toward trust-modulated move speed
+        float targetSpeed = _moveSpeed * _trustSpeedModifier;
+        _currentSpeed = Mathf.MoveTowards(_currentSpeed, targetSpeed, (targetSpeed / Mathf.Max(_accelerationTime, 0.01f)) * Time.deltaTime);
 
         // Move forward
         Vector3 move = transform.forward * _currentSpeed * Time.deltaTime;
@@ -358,5 +360,19 @@ public class NPCMotor : UdonSharpBehaviour
     public int GetMotorState()
     {
         return _motorState;
+    }
+
+    /// <summary>
+    /// Set trust-based speed modifier. speed = _moveSpeed * (0.3 + 0.7 * trust).
+    /// </summary>
+    public void SetTrustSpeedModifier(float trust)
+    {
+        _trustSpeedModifier = 0.3f + 0.7f * Mathf.Clamp01(trust);
+    }
+
+    /// <summary>Current trust speed modifier [0.3, 1.0].</summary>
+    public float GetTrustSpeedModifier()
+    {
+        return _trustSpeedModifier;
     }
 }

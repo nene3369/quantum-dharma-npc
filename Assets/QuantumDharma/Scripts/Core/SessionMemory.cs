@@ -70,6 +70,7 @@ public class SessionMemory : UdonSharpBehaviour
     [UdonSynced] private int[] _memPeakEmotion;  // strongest emotion experienced with this player
     [UdonSynced] private float[] _memPeakEmotionIntensity; // intensity of peak emotion (0-1)
     [UdonSynced] private int[] _memLastEmotion;  // emotion at time of departure
+    [UdonSynced] private int[] _memVisitCount;  // how many times player has visited
     [UdonSynced] private int _memCount;
 
     // Local-only: last-seen timestamps (not synced — relative to local Time.time)
@@ -90,6 +91,7 @@ public class SessionMemory : UdonSharpBehaviour
         _memPeakEmotion = new int[MAX_MEMORY];
         _memPeakEmotionIntensity = new float[MAX_MEMORY];
         _memLastEmotion = new int[MAX_MEMORY];
+        _memVisitCount = new int[MAX_MEMORY];
         _memLastSeenTime = new float[MAX_MEMORY];
         _memSlotActive = new bool[MAX_MEMORY];
         _memCount = 0;
@@ -157,6 +159,7 @@ public class SessionMemory : UdonSharpBehaviour
         _memIntentHistory[slot] = history & 0xFFFF; // keep 16 bits
 
         _memIsFriend[slot] = isFriend || (_memIsFriend[slot] && trust > 0f);
+        _memVisitCount[slot]++;
         _memLastSeenTime[slot] = Time.time;
 
         RequestSerialization();
@@ -423,7 +426,8 @@ public class SessionMemory : UdonSharpBehaviour
                    " t:" + _memInteractionTime[slot].ToString("F0") + "s" +
                    " G:" + _memGiftCount[slot].ToString() +
                    " E:" + _memPeakEmotion[slot].ToString() +
-                   "(" + _memPeakEmotionIntensity[slot].ToString("F1") + ")";
+                   "(" + _memPeakEmotionIntensity[slot].ToString("F1") + ")" +
+                   " V:" + _memVisitCount[slot].ToString();
         if (_memIsFriend[slot]) s += " [Friend]";
 
         return s;
@@ -452,6 +456,21 @@ public class SessionMemory : UdonSharpBehaviour
             count++;
         }
         return count > 0 ? sum / count : 0f;
+    }
+
+    /// <summary>Get visit count for a memory slot.</summary>
+    public int GetMemoryVisitCount(int memSlot)
+    {
+        if (memSlot < 0 || memSlot >= MAX_MEMORY) return 0;
+        return _memVisitCount[memSlot];
+    }
+
+    /// <summary>Get visit count by player ID.</summary>
+    public int GetPlayerVisitCount(int playerId)
+    {
+        int slot = FindMemorySlot(playerId);
+        if (slot < 0) return 0;
+        return _memVisitCount[slot];
     }
 
     // ================================================================

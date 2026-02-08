@@ -47,7 +47,9 @@ public class GestureController : UdonSharpBehaviour
     public const int GESTURE_NOD       = 3;
     public const int GESTURE_BECKON    = 4;
     public const int GESTURE_FLINCH    = 5;
-    public const int GESTURE_COUNT     = 6;
+    public const int GESTURE_SHAKE    = 6;   // head shake (gentle refusal)
+    public const int GESTURE_RETREAT  = 7;   // slow back-away
+    public const int GESTURE_COUNT     = 8;
 
     // ================================================================
     // References
@@ -69,6 +71,11 @@ public class GestureController : UdonSharpBehaviour
     [SerializeField] private string _triggerNod      = "GestureNod";
     [SerializeField] private string _triggerBeckon   = "GestureBeckon";
     [SerializeField] private string _triggerFlinch   = "GestureFlinch";
+    [SerializeField] private string _triggerShake   = "GestureShake";
+    [SerializeField] private string _triggerRetreat = "GestureRetreat";
+
+    [Header("Animator Float")]
+    [SerializeField] private string _paramGestureIntensity = "GestureIntensity";
 
     // ================================================================
     // Timing
@@ -104,6 +111,13 @@ public class GestureController : UdonSharpBehaviour
     private int _lastNpcState;
     private int _lastEmotion;
     private string _lastGestureName;
+    private float _gestureIntensity;
+
+    // Gesture chaining: simple 2-gesture queue
+    private int _queuedGesture;
+    private float _queuedDelay;
+    private float _queuedTimer;
+    private int _gestureIntensityHash;
 
     private void Start()
     {
@@ -115,6 +129,14 @@ public class GestureController : UdonSharpBehaviour
         _triggerHashes[GESTURE_NOD]       = Animator.StringToHash(_triggerNod);
         _triggerHashes[GESTURE_BECKON]    = Animator.StringToHash(_triggerBeckon);
         _triggerHashes[GESTURE_FLINCH]    = Animator.StringToHash(_triggerFlinch);
+        _triggerHashes[GESTURE_SHAKE]     = Animator.StringToHash(_triggerShake);
+        _triggerHashes[GESTURE_RETREAT]   = Animator.StringToHash(_triggerRetreat);
+
+        _gestureIntensityHash = Animator.StringToHash(_paramGestureIntensity);
+        _gestureIntensity = 0.5f;
+        _queuedGesture = GESTURE_NONE;
+        _queuedDelay = 0f;
+        _queuedTimer = 0f;
 
         _perGestureCooldownTimers = new float[GESTURE_COUNT];
         _globalCooldownTimer = 0f;
@@ -140,6 +162,18 @@ public class GestureController : UdonSharpBehaviour
         {
             if (_perGestureCooldownTimers[i] > 0f)
                 _perGestureCooldownTimers[i] -= dt;
+        }
+
+        // Process queued gesture chain
+        if (_queuedGesture != GESTURE_NONE)
+        {
+            _queuedTimer += dt;
+            if (_queuedTimer >= _queuedDelay)
+            {
+                int queued = _queuedGesture;
+                _queuedGesture = GESTURE_NONE;
+                TryGesture(queued, _gestureIntensity);
+            }
         }
 
         if (_manager == null) return;
@@ -325,6 +359,10 @@ public class GestureController : UdonSharpBehaviour
         // Per-gesture cooldown check
         if (_perGestureCooldownTimers[gesture] > 0f) return false;
 
+        // Set intensity based on trust before firing trigger
+        _gestureIntensity = 0.3f + 0.7f * Mathf.Clamp01(trust);
+        _animator.SetFloat(_gestureIntensityHash, _gestureIntensity);
+
         // Fire the Animator trigger
         _animator.SetTrigger(_triggerHashes[gesture]);
 
@@ -389,7 +427,25 @@ public class GestureController : UdonSharpBehaviour
             case GESTURE_NOD:       return "Nod";
             case GESTURE_BECKON:    return "Beckon";
             case GESTURE_FLINCH:    return "Flinch";
+            case GESTURE_SHAKE:     return "Shake";
+            case GESTURE_RETREAT:   return "Retreat";
             default:                return "None";
         }
     }
+
+    /// <summary>
+    /// Queue a 2-gesture chain: fire gesture1 now, then gesture2 after delay.
+    /// </summary>
+    public void PlayGestureChain(int gesture1, int gesture2, float delay, float trust)
+    {
+        if (TryGesture(gesture1, trust))
+        {
+            _queuedGesture = gesture2;
+            _queuedDelay = delay;
+            _queuedTimer = 0f;
+        }
+    }
+
+    /// <summary>Current gesture intensity [0.3, 1.0].</summary>
+    public float GetGestureIntensity() { return _gestureIntensity; }
 }
