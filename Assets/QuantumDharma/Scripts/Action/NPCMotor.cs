@@ -113,7 +113,7 @@ public class NPCMotor : UdonSharpBehaviour
     private void UpdateIdle()
     {
         // Decelerate to zero (ground state: stillness)
-        _currentSpeed = Mathf.MoveTowards(_currentSpeed, 0f, (_moveSpeed / _accelerationTime) * Time.deltaTime);
+        _currentSpeed = Mathf.MoveTowards(_currentSpeed, 0f, (_moveSpeed / Mathf.Max(_accelerationTime, 0.01f)) * Time.deltaTime);
     }
 
     private void UpdateWalkToward()
@@ -135,7 +135,7 @@ public class NPCMotor : UdonSharpBehaviour
         RotateToward(toTarget.normalized);
 
         // Accelerate toward move speed
-        _currentSpeed = Mathf.MoveTowards(_currentSpeed, _moveSpeed, (_moveSpeed / _accelerationTime) * Time.deltaTime);
+        _currentSpeed = Mathf.MoveTowards(_currentSpeed, _moveSpeed, (_moveSpeed / Mathf.Max(_accelerationTime, 0.01f)) * Time.deltaTime);
 
         // Move forward
         Vector3 move = transform.forward * _currentSpeed * Time.deltaTime;
@@ -168,7 +168,7 @@ public class NPCMotor : UdonSharpBehaviour
         RotateToward(awayDir);
 
         // Accelerate
-        _currentSpeed = Mathf.MoveTowards(_currentSpeed, _moveSpeed, (_moveSpeed / _accelerationTime) * Time.deltaTime);
+        _currentSpeed = Mathf.MoveTowards(_currentSpeed, _moveSpeed, (_moveSpeed / Mathf.Max(_accelerationTime, 0.01f)) * Time.deltaTime);
 
         Vector3 move = transform.forward * _currentSpeed * Time.deltaTime;
         transform.position += move;
@@ -177,7 +177,7 @@ public class NPCMotor : UdonSharpBehaviour
     private void UpdateFaceTarget()
     {
         // Decelerate
-        _currentSpeed = Mathf.MoveTowards(_currentSpeed, 0f, (_moveSpeed / _accelerationTime) * Time.deltaTime);
+        _currentSpeed = Mathf.MoveTowards(_currentSpeed, 0f, (_moveSpeed / Mathf.Max(_accelerationTime, 0.01f)) * Time.deltaTime);
 
         Vector3 targetPos = GetCurrentTargetPosition();
         Vector3 toTarget = targetPos - transform.position;

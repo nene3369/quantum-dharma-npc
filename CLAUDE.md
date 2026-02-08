@@ -36,7 +36,7 @@
                └──────────────────┬──────────────────┘
                                   │ observations
                ┌──────────────────▼──────────────────┐
-               │          Core Layer (10)              │
+               │          Core Layer (15)              │
                │                                      │
                │  QuantumDharmaManager (orchestrator)  │
                │  FreeEnergyCalculator (5-ch PE)       │
@@ -48,6 +48,11 @@
                │  AdaptivePersonality (long-term evo)  │
                │  CuriosityDrive (epistemic value)     │
                │  ContextualUtterance (situation talk)  │
+               │  GroupDynamics (cluster detection)     │
+               │  EmotionalContagion (crowd mood)      │
+               │  AttentionSystem (precision alloc)    │
+               │  HabitFormation (temporal predict)    │
+               │  MultiNPCRelay (NPC trust relay)      │
                └──────┬──────────┬──────────┬────────┘
                       │          │          │
                ┌──────▼──┐  ┌───▼──────┐  ┌▼────────────┐
@@ -84,9 +89,15 @@ MarkovBlanket ──trust───────→ TrustVisualizer (color/glow)
 DreamState ──consolidation──→ SessionMemory (offline belief update)
 DreamNarrative ──wake text──→ QuantumDharmaNPC (ForceDisplayText)
 ContextualUtterance ──text──→ QuantumDharmaNPC (ForceDisplayText)
+GroupDynamics ──FoF bonus───→ Manager (complexity cost reduction)
+EmotionalContagion ──mood───→ Manager (retreat/approach threshold shift)
+AttentionSystem ──precision─→ FreeEnergyCalculator (per-slot multiplier)
+HabitFormation ──loneliness─→ Manager (silence threshold shift)
+MultiNPCRelay ──prior shift─→ BeliefState (trust prior on registration)
+MultiNPCRelay ──reputation──→ Peer NPCs (cross-NPC trust relay)
 ```
 
-### Component Inventory (27 scripts)
+### Component Inventory (32 scripts)
 
 #### Perception Layer (7)
 
@@ -100,7 +111,7 @@ ContextualUtterance ──text──→ QuantumDharmaNPC (ForceDisplayText)
 | `GiftReceiver.cs` | None | Detects dropped VRC_Pickup objects as gifts, habituation model |
 | `VoiceDetector.cs` | None | Behavioral engagement proxy (proximity + gaze + stillness) |
 
-#### Core Layer (10)
+#### Core Layer (15)
 
 | Script | Sync Mode | Role |
 |---|---|---|
@@ -114,6 +125,11 @@ ContextualUtterance ──text──→ QuantumDharmaNPC (ForceDisplayText)
 | `AdaptivePersonality.cs` | None | Long-term personality evolution: sociability, cautiousness, expressiveness |
 | `CuriosityDrive.cs` | None | Epistemic exploration: novelty-seeking, habituation, action cost bias |
 | `ContextualUtterance.cs` | None | Situation-aware speech: first meet, re-encounter, friend return, long stay |
+| `GroupDynamics.cs` | None | Spatial cluster detection, group trust, friend-of-friend transfer |
+| `EmotionalContagion.cs` | None | Crowd mood estimation, NPC anxiety/warmth from aggregate player behavior |
+| `AttentionSystem.cs` | None | Finite attention budget allocation, precision multiplier per slot |
+| `HabitFormation.cs` | None | Visit pattern learning, temporal prediction, loneliness signal |
+| `MultiNPCRelay.cs` | None | NPC-to-NPC reputation relay, Bayesian prior shift for new players |
 
 #### Action Layer (7)
 

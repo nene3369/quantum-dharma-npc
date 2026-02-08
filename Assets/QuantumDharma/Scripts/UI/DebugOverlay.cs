@@ -57,6 +57,13 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private CuriosityDrive _curiosityDrive;
     [SerializeField] private GestureController _gestureController;
 
+    [Header("References — Social Intelligence (optional)")]
+    [SerializeField] private GroupDynamics _groupDynamics;
+    [SerializeField] private EmotionalContagion _emotionalContagion;
+    [SerializeField] private AttentionSystem _attentionSystem;
+    [SerializeField] private HabitFormation _habitFormation;
+    [SerializeField] private MultiNPCRelay _multiNPCRelay;
+
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
     [SerializeField] private Text _stateLabel;
@@ -542,6 +549,65 @@ public class DebugOverlay : UdonSharpBehaviour
                 {
                     details += " [CD]";
                 }
+            }
+
+            // Group dynamics line
+            if (_groupDynamics != null)
+            {
+                int groups = _groupDynamics.GetActiveGroupCount();
+                details += "\nGroups:" + groups.ToString();
+                int focusSlotG = _manager.GetFocusSlot();
+                if (focusSlotG >= 0)
+                {
+                    int gId = _groupDynamics.GetGroupId(focusSlotG);
+                    if (gId != GroupDynamics.GROUP_NONE)
+                    {
+                        details += " g:" + gId.ToString() +
+                            " gT:" + _groupDynamics.GetGroupTrust(gId).ToString("F2") +
+                            " sz:" + _groupDynamics.GetGroupSize(gId).ToString();
+                    }
+                    float fof = _groupDynamics.GetFriendOfFriendBonus(focusSlotG);
+                    if (fof > 0.001f) details += " FoF:" + fof.ToString("F2");
+                }
+            }
+
+            // Emotional contagion line
+            if (_emotionalContagion != null)
+            {
+                details += "\nCrowd:" + _emotionalContagion.GetCrowdSize().ToString() +
+                    " mood:" + _emotionalContagion.GetCrowdMood().ToString("F2") +
+                    " anx:" + _emotionalContagion.GetCrowdAnxiety().ToString("F2") +
+                    " warm:" + _emotionalContagion.GetCrowdWarmth().ToString("F2");
+            }
+
+            // Attention system line
+            if (_attentionSystem != null)
+            {
+                int attnFocus = _attentionSystem.GetFocusSlot();
+                details += "\nAttn focus:" + attnFocus.ToString() +
+                    " slots:" + _attentionSystem.GetAttendedSlotCount().ToString() +
+                    " budget:" + _attentionSystem.GetAttentionBudgetRemaining().ToString("F2");
+                int focusSlotA = _manager.GetFocusSlot();
+                if (focusSlotA >= 0)
+                {
+                    details += " lv:" + _attentionSystem.GetAttention(focusSlotA).ToString("F2") +
+                        " px:" + _attentionSystem.GetPrecisionMultiplier(focusSlotA).ToString("F2");
+                }
+            }
+
+            // Habit formation line
+            if (_habitFormation != null)
+            {
+                details += "\nHabits:" + _habitFormation.GetHabitSlotCount().ToString() +
+                    " lonely:" + _habitFormation.GetLonelinessSignal().ToString("F2") +
+                    " absent:" + _habitFormation.GetExpectedAbsentCount().ToString();
+            }
+
+            // Multi-NPC relay line
+            if (_multiNPCRelay != null)
+            {
+                details += "\nRelay peers:" + _multiNPCRelay.GetPeerCount().ToString() +
+                    " entries:" + _multiNPCRelay.GetRelayCount().ToString();
             }
 
             _detailsLabel.text = details;

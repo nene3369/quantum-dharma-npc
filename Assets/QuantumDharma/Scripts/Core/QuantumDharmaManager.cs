@@ -71,6 +71,13 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private CuriosityDrive _curiosityDrive;
     [SerializeField] private GestureController _gestureController;
 
+    [Header("Components — Social Intelligence (optional)")]
+    [SerializeField] private GroupDynamics _groupDynamics;
+    [SerializeField] private EmotionalContagion _emotionalContagion;
+    [SerializeField] private AttentionSystem _attentionSystem;
+    [SerializeField] private HabitFormation _habitFormation;
+    [SerializeField] private MultiNPCRelay _multiNPCRelay;
+
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
     // ================================================================
@@ -302,7 +309,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         for (int i = 0; i < count; i++)
         {
             VRCPlayerApi p = _playerSensor.GetTrackedPlayer(i);
-            __currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
+            _currentIds[i] = (p != null && p.IsValid()) ? p.playerId : -1;
         }
 
         // Unregister players that left — save to SessionMemory first
@@ -326,16 +333,29 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                     {
                         int giftCount = _giftReceiver != null
                             ? _giftReceiver.GetPlayerGiftCount(oldId) : 0;
+                        float departTrust = _beliefState.GetSlotTrust(bSlot);
                         _sessionMemory.SavePlayer(
                             oldId,
-                            _beliefState.GetSlotTrust(bSlot),
+                            departTrust,
                             _beliefState.GetSlotKindness(bSlot),
                             _interactionTimes[i],
                             _beliefState.GetDominantIntent(bSlot),
                             _beliefState.IsFriend(bSlot),
                             giftCount
                         );
+
+                        // Broadcast reputation to other NPCs on departure
+                        if (_multiNPCRelay != null && Mathf.Abs(departTrust) >= 0.3f)
+                        {
+                            _multiNPCRelay.BroadcastReputation(oldId, departTrust);
+                        }
                     }
+                }
+
+                // Notify habit system of departure
+                if (_habitFormation != null)
+                {
+                    _habitFormation.NotifyPlayerDeparted(oldId, _interactionTimes[i]);
                 }
 
                 if (_freeEnergyCalculator != null) _freeEnergyCalculator.UnregisterPlayer(oldId);
@@ -360,10 +380,24 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             }
             if (wasTracked) continue;
 
+            // Notify habit system of arrival
+            if (_habitFormation != null)
+            {
+                _habitFormation.NotifyPlayerArrived(id);
+            }
+
             if (_freeEnergyCalculator != null) _freeEnergyCalculator.RegisterPlayer(id);
             if (_beliefState != null)
             {
                 int slot = _beliefState.RegisterPlayer(id);
+
+                // Apply relay prior shift from other NPCs
+                if (slot >= 0 && _multiNPCRelay != null && _multiNPCRelay.HasRelayData(id))
+                {
+                    float priorShift = _multiNPCRelay.GetPriorShift(id);
+                    _beliefState.AdjustSlotTrust(slot, priorShift);
+                    _multiNPCRelay.ClearRelayData(id);
+                }
 
                 // Restore from session memory if this player was seen before
                 if (slot >= 0 && _sessionMemory != null)
@@ -640,7 +674,6 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         // Low-trust touch or back push → force brief Retreat
-        float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
         if (trustDelta < 0f || zone == TouchSensor.ZONE_BACK)
         {
             _touchForcedRetreat = true;
@@ -774,16 +807,32 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         // Curiosity bias: novel stimuli lower thresholds for engagement
         float curiosityBias = _curiosityDrive != null ? _curiosityDrive.GetCuriosityBias() : 0f;
-        float effectiveActionCost = _actionCostThreshold - curiosityBias;
-        float effectiveApproachThreshold = _approachThreshold - curiosityBias * 0.5f;
 
-        if (_freeEnergy < effectiveActionCost)
+        // Loneliness lowers the silence threshold (NPC becomes restless)
+        float lonelinessBias = _habitFormation != null ? _habitFormation.GetLonelinessSignal() * 0.3f : 0f;
+
+        // Crowd anxiety raises the retreat threshold (NPC more sensitive)
+        float crowdAnxietyBias = _emotionalContagion != null ? _emotionalContagion.GetCrowdAnxiety() * 1.5f : 0f;
+
+        // Friend-of-friend bonus reduces effective free energy for grouped players
+        float fofReduction = 0f;
+        if (_groupDynamics != null && _focusSlot >= 0)
+        {
+            fofReduction = _groupDynamics.GetFriendOfFriendBonus(_focusSlot) * 3f;
+        }
+
+        float effectiveActionCost = _actionCostThreshold - curiosityBias - lonelinessBias;
+        float effectiveApproachThreshold = _approachThreshold - curiosityBias * 0.5f;
+        float effectiveFreeEnergy = Mathf.Max(0f, _freeEnergy - fofReduction);
+        float effectiveRetreatThreshold = _retreatThreshold - crowdAnxietyBias;
+
+        if (effectiveFreeEnergy < effectiveActionCost)
         {
             _npcState = NPC_STATE_SILENCE;
             return;
         }
 
-        if (_freeEnergy > _retreatThreshold)
+        if (effectiveFreeEnergy > effectiveRetreatThreshold)
         {
             _npcState = NPC_STATE_RETREAT;
             return;
@@ -797,7 +846,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             int intent = _beliefState.GetDominantIntent(_focusSlot);
 
             // Threat intent + moderate F → Retreat even below threshold
-            if (intent == BeliefState.INTENT_THREAT && _freeEnergy > effectiveApproachThreshold)
+            if (intent == BeliefState.INTENT_THREAT && effectiveFreeEnergy > effectiveApproachThreshold)
             {
                 _npcState = NPC_STATE_RETREAT;
                 return;
@@ -812,7 +861,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         // Standard thresholds
-        if (_freeEnergy < effectiveApproachThreshold && trust >= _approachTrustMin)
+        if (effectiveFreeEnergy < effectiveApproachThreshold && trust >= _approachTrustMin)
         {
             _npcState = NPC_STATE_APPROACH;
             return;
@@ -1031,5 +1080,30 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public GestureController GetGestureController()
     {
         return _gestureController;
+    }
+
+    public GroupDynamics GetGroupDynamics()
+    {
+        return _groupDynamics;
+    }
+
+    public EmotionalContagion GetEmotionalContagion()
+    {
+        return _emotionalContagion;
+    }
+
+    public AttentionSystem GetAttentionSystem()
+    {
+        return _attentionSystem;
+    }
+
+    public HabitFormation GetHabitFormation()
+    {
+        return _habitFormation;
+    }
+
+    public MultiNPCRelay GetMultiNPCRelay()
+    {
+        return _multiNPCRelay;
     }
 }

@@ -216,7 +216,25 @@ public class TouchSensor : UdonSharpBehaviour
 
         _toucherActive[slot] = false;
         _toucherCooldownUntil[slot] = Time.time + _touchCooldown;
-        _activeTouchCount--;
+        if (_activeTouchCount > 0) _activeTouchCount--;
+    }
+
+    /// <summary>
+    /// Cleanup on player disconnect — prevents ghost touchers with stuck state.
+    /// </summary>
+    public override void OnPlayerLeft(VRCPlayerApi player)
+    {
+        if (player == null) return;
+        int slot = FindToucherSlot(player.playerId);
+        if (slot < 0) return;
+
+        if (_toucherActive[slot])
+        {
+            _toucherActive[slot] = false;
+            if (_activeTouchCount > 0) _activeTouchCount--;
+        }
+        _toucherPlayerIds[slot] = -1;
+        _toucherCooldownUntil[slot] = 0f;
     }
 
     // ================================================================

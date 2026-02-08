@@ -127,6 +127,9 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
 
     private void Start()
     {
+        // Guard configurable window size (used as modulo divisor and array size)
+        _behaviorWindowSize = Mathf.Max(_behaviorWindowSize, 1);
+
         _slotPlayerIds = new int[MAX_SLOTS];
         _slotActive = new bool[MAX_SLOTS];
         _slotFreeEnergy = new float[MAX_SLOTS];
@@ -356,7 +359,8 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         }
         else
         {
-            _peakFreeEnergy = Mathf.Max(0f, _peakFreeEnergy - _peakDecayRate * Time.deltaTime);
+            // Use tick interval (called from Manager's decision tick, not per-frame)
+            _peakFreeEnergy = Mathf.Max(0f, _peakFreeEnergy - _peakDecayRate * 0.5f);
         }
     }
 

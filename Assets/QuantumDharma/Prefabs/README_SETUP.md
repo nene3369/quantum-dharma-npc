@@ -36,6 +36,11 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── TrustVisualizer           ← Empty GameObject (optional)
 ├── CuriosityDrive            ← Empty GameObject (optional)
 ├── GestureController         ← Empty GameObject (optional, needs Animator ref)
+├── GroupDynamics             ← Empty GameObject (optional)
+├── EmotionalContagion        ← Empty GameObject (optional)
+├── AttentionSystem           ← Empty GameObject (optional)
+├── HabitFormation            ← Empty GameObject (optional)
+├── MultiNPCRelay             ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -430,6 +435,100 @@ No special components needed on the root. Position this where you want the NPC t
    - Set **Sync Mode** on the UdonBehaviour to **Manual**
    - SessionMemory uses `[UdonSynced]` arrays so all players see consistent NPC memory
 
+### 2g-xi. GroupDynamics (optional)
+
+1. Create an empty child GameObject under the NPC root named `GroupDynamics`
+2. Add **UdonBehaviour**
+3. Attach script: `GroupDynamics.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Group Radius:** 3.5 (max distance between players to form a group)
+   - **Group Formation Time:** 2.0 (seconds clustered before group is recognized)
+   - **Group Dissolution Time:** 3.0 (seconds apart before group dissolves)
+   - **Friend Of Friend Factor:** 0.3 (trust transfer multiplier)
+   - **Max Transfer Bonus:** 0.15 (cap on FoF trust bonus)
+   - **Friend Trust Minimum:** 0.4 (friend must have this trust for transfer)
+   - **Group Trust Smoothing:** 0.2 (EMA convergence rate)
+   - **Update Interval:** 0.5
+5. **FEP interpretation:** Groups reduce model complexity. When players cluster, the NPC can model them as a social entity. A friend's presence lowers the NPC's surprise at nearby strangers.
+
+### 2g-xii. EmotionalContagion (optional)
+
+1. Create an empty child GameObject under the NPC root named `EmotionalContagion`
+2. Add **UdonBehaviour**
+3. Attach script: `EmotionalContagion.cs`
+4. Configure in Inspector:
+   - **Belief State:** drag the BeliefState GameObject
+   - **Free Energy Calculator:** (optional) drag the FreeEnergyCalculator GameObject
+   - **Inertia Factor:** 0.05 (lower = more emotional inertia)
+   - **Min Crowd Size:** 2 (minimum players for contagion to activate)
+   - **Friendly Influence Weight:** 1.0
+   - **Threat Influence Weight:** 1.5 (threatening players have outsized effect)
+   - **Neutral Influence Weight:** 0.3
+   - **Anxiety Growth Rate:** 0.04
+   - **Anxiety Decay Rate:** 0.02
+   - **Baseline Decay Rate:** 0.01
+   - **Max Influence:** 0.6
+   - **Update Interval:** 0.5
+5. **How it works:** Estimates each player's "mood" from their dominant intent and behavior PE. Aggregates into a crowd valence [-1, 1]. The NPC's anxiety/warmth drifts slowly toward crowd mood with configurable inertia.
+
+### 2g-xiii. AttentionSystem (optional)
+
+1. Create an empty child GameObject under the NPC root named `AttentionSystem`
+2. Add **UdonBehaviour**
+3. Attach script: `AttentionSystem.cs`
+4. Configure in Inspector:
+   - **Belief State:** drag the BeliefState GameObject
+   - **Free Energy Calculator:** (optional) drag the FreeEnergyCalculator GameObject
+   - **Curiosity Drive:** (optional) drag the CuriosityDrive GameObject
+   - **Threat Priority:** 4.0 (threats demand the most attention)
+   - **Novelty Priority:** 2.5 (novel players attract attention)
+   - **Friend Priority:** 1.5 (friends are predictable, need less)
+   - **Approach Priority:** 2.0 (approaching players need monitoring)
+   - **Neutral Priority:** 1.0
+   - **Transition Speed:** 0.15 (smooth attention shifts)
+   - **Free Energy Boost:** 0.5 (high FE demands attention)
+   - **Update Interval:** 0.5
+5. **FEP interpretation:** Attention IS precision in the free energy framework. The NPC allocates finite precision (confidence) across sensory channels based on expected information gain. `GetPrecisionMultiplier(slot)` returns [0.5, 2.0] for use by FreeEnergyCalculator.
+
+### 2g-xiv. HabitFormation (optional)
+
+1. Create an empty child GameObject under the NPC root named `HabitFormation`
+2. Add **UdonBehaviour**
+3. Attach script: `HabitFormation.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Habit Learning Rate:** 0.15 (per visit)
+   - **Habit Decay Rate:** 0.005 (per check interval)
+   - **Min Visits For Habit:** 3 (visits before habit is considered formed)
+   - **Prediction Window Hours:** 1.5 (tolerance for "on schedule")
+   - **Max Loneliness Signal:** 0.5
+   - **Loneliness Build Rate:** 0.02
+   - **Loneliness Decay Rate:** 0.1
+   - **Update Interval:** 10 (seconds)
+5. **How it works:** Tracks per-player visit timestamps in a 24-bin histogram. After enough visits, predicts when each player is expected. If a habitual visitor doesn't show up during their expected window, the NPC generates a loneliness signal that lowers the silence threshold — making the NPC restless.
+6. **FEP interpretation:** This is temporal prediction error. The NPC's generative model now includes time as a dimension. "Player X usually arrives at hour H" is a temporal prior.
+
+### 2g-xv. MultiNPCRelay (optional)
+
+1. Create an empty child GameObject under the NPC root named `MultiNPCRelay`
+2. Add **UdonBehaviour**
+3. Attach script: `MultiNPCRelay.cs`
+4. Configure in Inspector:
+   - **Belief State:** drag the BeliefState GameObject
+   - **Peer 0–3:** (optional) drag other NPC instances' MultiNPCRelay GameObjects
+   - **Broadcast Trust Threshold:** 0.4 (minimum trust magnitude to broadcast)
+   - **Broadcast Cooldown:** 5.0 (seconds between broadcasts)
+   - **Receive Cooldown Per Player:** 10.0 (rate limit per player)
+   - **Relay Trust Weight:** 0.25 (how much to trust relayed info)
+   - **Max Prior Shift:** 0.15 (cap on trust adjustment from relay)
+   - **Relay Decay Rate:** 0.005 (relayed info becomes stale)
+   - **Check Interval:** 2.0 (seconds between broadcast checks)
+5. **Multi-NPC setup:** For 2+ NPCs in the same world, wire each NPC's MultiNPCRelay as a peer of the others. NPC-A's relay goes into NPC-B's Peer 0 slot, and vice versa.
+6. **FEP interpretation:** Hierarchical Bayesian inference across agents. Each NPC is an independent inference engine. Reputation relay acts as an empirical prior: "another agent has already observed this player."
+
 ### 2i. NPCMotor
 
 1. Add **UdonBehaviour**
@@ -473,6 +572,11 @@ No special components needed on the root. Position this where you want the NPC t
    - **Idle Waypoints:** (optional) drag IdleWaypoints
    - **Curiosity Drive:** (optional) drag CuriosityDrive
    - **Gesture Controller:** (optional) drag GestureController
+   - **Group Dynamics:** (optional) drag GroupDynamics
+   - **Emotional Contagion:** (optional) drag EmotionalContagion
+   - **Attention System:** (optional) drag AttentionSystem
+   - **Habit Formation:** (optional) drag HabitFormation
+   - **Multi NPC Relay:** (optional) drag MultiNPCRelay
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -528,6 +632,11 @@ No special components needed on the root. Position this where you want the NPC t
    - **Idle Waypoints:** (optional) drag IdleWaypoints
    - **Curiosity Drive:** (optional) drag CuriosityDrive
    - **Gesture Controller:** (optional) drag GestureController
+   - **Group Dynamics:** (optional) drag GroupDynamics
+   - **Emotional Contagion:** (optional) drag EmotionalContagion
+   - **Attention System:** (optional) drag AttentionSystem
+   - **Habit Formation:** (optional) drag HabitFormation
+   - **Multi NPC Relay:** (optional) drag MultiNPCRelay
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -664,7 +773,12 @@ QuantumDharmaManager
   ├─→ TrustVisualizer          (optional: referenced for wiring)
   ├─→ IdleWaypoints            (optional: patrols during Silence with no players)
   ├─→ CuriosityDrive           (optional: reads curiosity bias for state selection)
-  └─→ GestureController        (optional: triggers gestures on gift/friend events)
+  ├─→ GestureController        (optional: triggers gestures on gift/friend events)
+  ├─→ GroupDynamics            (optional: reads FoF bonus for complexity cost)
+  ├─→ EmotionalContagion       (optional: reads crowd anxiety for retreat threshold)
+  ├─→ AttentionSystem          (optional: reads attention focus for gaze)
+  ├─→ HabitFormation           (optional: reads loneliness for silence threshold, notifies arrival/departure)
+  └─→ MultiNPCRelay            (optional: broadcasts reputation on departure, reads prior shift on arrival)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -690,7 +804,36 @@ DebugOverlay
   ├─→ TrustVisualizer          (optional: reads emission intensity)
   ├─→ IdleWaypoints            (optional: reads patrol state + waypoint index)
   ├─→ CuriosityDrive           (optional: reads curiosity + novelty values)
-  └─→ GestureController        (optional: reads last gesture + cooldown)
+  ├─→ GestureController        (optional: reads last gesture + cooldown)
+  ├─→ GroupDynamics            (optional: reads group ID, size, trust, FoF bonus)
+  ├─→ EmotionalContagion       (optional: reads crowd mood, anxiety, warmth)
+  ├─→ AttentionSystem          (optional: reads attention focus, level, precision multiplier)
+  ├─→ HabitFormation           (optional: reads habit count, loneliness, absent count)
+  └─→ MultiNPCRelay            (optional: reads relay count, peer count)
+
+GroupDynamics
+  ├─→ PlayerSensor             (reads tracked player positions for clustering)
+  └─→ BeliefState              (reads per-slot trust for group trust + FoF calculation)
+
+EmotionalContagion
+  ├─→ BeliefState              (reads dominant intent + posteriors for mood estimation)
+  └─→ FreeEnergyCalculator     (optional: reads behavior PE for erratic detection)
+
+AttentionSystem
+  ├─→ BeliefState              (reads dominant intent for priority assignment)
+  ├─→ FreeEnergyCalculator     (optional: reads per-slot FE for attention demand)
+  └─→ CuriosityDrive           (optional: reads novelty for attention priority boost)
+
+HabitFormation
+  ├─→ PlayerSensor             (reads tracked players for presence checking)
+  └─→ BeliefState              (reads slot data for player identification)
+
+MultiNPCRelay
+  ├─→ BeliefState              (reads per-slot trust for broadcast decisions)
+  ├─→ Peer 0                   (optional: other NPC's MultiNPCRelay)
+  ├─→ Peer 1                   (optional: other NPC's MultiNPCRelay)
+  ├─→ Peer 2                   (optional: other NPC's MultiNPCRelay)
+  └─→ Peer 3                   (optional: other NPC's MultiNPCRelay)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -792,6 +935,27 @@ FreeEnergyVisualizer
 - [ ] High expressiveness — verify more frequent idle gestures
 - [ ] Low expressiveness — verify less frequent idle gestures
 - [ ] Check "Gesture:" line in DebugOverlay showing last gesture name + [CD] cooldown indicator
+- [ ] Have 2+ players stand close together (within 3.5m) for 2+ seconds — verify "Groups:" shows 1
+- [ ] One player is a friend, the other a stranger — verify FoF bonus appears in DebugOverlay
+- [ ] Separate the group — verify group dissolves after 3 seconds apart
+- [ ] Check "Groups:" line in DebugOverlay showing count, group ID, trust, size, FoF bonus
+- [ ] Have 2+ calm/friendly players nearby — verify NPC warmth increases in "Crowd:" line
+- [ ] Have erratic/threatening players nearby — verify NPC anxiety increases
+- [ ] Single player — verify contagion does not activate (min crowd size = 2)
+- [ ] All players leave — verify anxiety/warmth slowly decay to zero
+- [ ] Check "Crowd:" line in DebugOverlay showing crowd size, mood, anxiety, warmth
+- [ ] Multiple players in range — verify attention is distributed (not all to one player)
+- [ ] Threatening player enters — verify they get highest attention priority
+- [ ] Novel player enters — verify novelty boosts their attention
+- [ ] Friend enters — verify they get moderate attention (predictable = less priority)
+- [ ] Check "Attn:" line in DebugOverlay showing focus slot, slots, budget, level, precision
+- [ ] Visit NPC 3+ times — verify habit forms (check "Habits:" line shows increasing count)
+- [ ] Leave and return during expected window — verify calm greeting (low temporal PE)
+- [ ] Don't return during expected window — verify loneliness signal builds
+- [ ] Check "Habits:" line in DebugOverlay showing habit count, loneliness, absent count
+- [ ] Place 2 NPCs in world, wire their MultiNPCRelay as peers
+- [ ] Build trust with NPC-A, then approach NPC-B — verify NPC-B has slight trust prior
+- [ ] Check "Relay:" line in DebugOverlay showing peer count and relay entries
 
 ---
 
@@ -812,3 +976,8 @@ FreeEnergyVisualizer
 - DreamNarrative: only active during wake transition — no ongoing cost
 - CuriosityDrive: updates every 0.5s — lightweight (loops over 16 slots with simple math)
 - GestureController: runs per frame but only does cooldown decrements (6 floats) + state checks; no heavy computation
+- GroupDynamics: updates every 0.5s; O(n^2) pairwise distance check on MAX_SLOTS=16 (256 iterations max) — acceptable
+- EmotionalContagion: updates every 0.5s; loops over 16 slots with simple mood classification — lightweight
+- AttentionSystem: updates every 0.5s; normalization pass over 16 slots — negligible
+- HabitFormation: updates every 10s; loops over 32 habit slots with histogram peak detection — very lightweight
+- MultiNPCRelay: checks every 2s; iterates 4 peers max — negligible overhead

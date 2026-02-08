@@ -139,7 +139,7 @@ public class VoiceDetector : UdonSharpBehaviour
             else
             {
                 distFactor = 1f - Mathf.Clamp01(
-                    (dist - _closeDistance) / (_engagementDistance - _closeDistance)
+                    (dist - _closeDistance) / Mathf.Max(_engagementDistance - _closeDistance, 0.01f)
                 );
             }
 

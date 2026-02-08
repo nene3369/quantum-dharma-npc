@@ -135,7 +135,7 @@ public class MirrorBehavior : UdonSharpBehaviour
 
         // Mirror intensity: linear ramp from threshold to 1.0
         float intensity = Mathf.Clamp01(
-            (trust - _mirrorTrustThreshold) / (1f - _mirrorTrustThreshold)
+            (trust - _mirrorTrustThreshold) / Mathf.Max(1f - _mirrorTrustThreshold, 0.01f)
         );
 
         _isActive = true;
