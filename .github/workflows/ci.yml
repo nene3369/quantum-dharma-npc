@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 'claude/**' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Validate UdonSharp Scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify project structure
+        run: |
+          echo "=== Quantum Dharma NPC — CI ==="
+          echo ""
+          echo "This is a Unity/UdonSharp (VRChat) project."
+          echo "Full compilation requires Unity 2022.3 LTS + VRChat SDK."
+          echo "CI performs structural validation only."
+          echo ""
+
+          # Check that essential directories exist
+          for dir in \
+            "Assets/QuantumDharma/Scripts/Core" \
+            "Assets/QuantumDharma/Scripts/Perception" \
+            "Assets/QuantumDharma/Scripts/Action" \
+            "Assets/QuantumDharma/Scripts/UI"; do
+            if [ ! -d "$dir" ]; then
+              echo "FAIL: Missing directory: $dir"
+              exit 1
+            fi
+            echo "OK: $dir"
+          done
+
+      - name: Count and list scripts
+        run: |
+          echo "=== Script Inventory ==="
+          CORE=$(find Assets/QuantumDharma/Scripts/Core -name '*.cs' | wc -l)
+          PERCEPTION=$(find Assets/QuantumDharma/Scripts/Perception -name '*.cs' | wc -l)
+          ACTION=$(find Assets/QuantumDharma/Scripts/Action -name '*.cs' | wc -l)
+          UI=$(find Assets/QuantumDharma/Scripts/UI -name '*.cs' | wc -l)
+          TOTAL=$((CORE + PERCEPTION + ACTION + UI))
+
+          echo "Core:       $CORE"
+          echo "Perception: $PERCEPTION"
+          echo "Action:     $ACTION"
+          echo "UI:         $UI"
+          echo "Total:      $TOTAL"
+
+          if [ "$TOTAL" -lt 30 ]; then
+            echo "WARNING: Expected at least 30 scripts, found $TOTAL"
+          fi
+
+      - name: Check .meta file pairing
+        run: |
+          echo "=== Meta File Check ==="
+          MISSING=0
+          while IFS= read -r cs_file; do
+            meta="${cs_file}.meta"
+            if [ ! -f "$meta" ]; then
+              echo "FAIL: Missing .meta for $cs_file"
+              MISSING=$((MISSING + 1))
+            fi
+          done < <(find Assets/QuantumDharma/Scripts -name '*.cs')
+
+          if [ "$MISSING" -gt 0 ]; then
+            echo "ERROR: $MISSING script(s) missing .meta files"
+            exit 1
+          fi
+          echo "OK: All .cs files have matching .meta files"
+
+      - name: Basic syntax check
+        run: |
+          echo "=== UdonSharp Syntax Check ==="
+          ERRORS=0
+          while IFS= read -r cs_file; do
+            # Check for UdonSharp-incompatible patterns
+            if grep -Pn '\$"' "$cs_file" > /dev/null 2>&1; then
+              echo "WARN: String interpolation in $cs_file (not allowed in UdonSharp)"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if grep -Pn '\?\.' "$cs_file" > /dev/null 2>&1; then
+              echo "WARN: Null-conditional operator in $cs_file (not allowed in UdonSharp)"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if grep -Pn '\?\?' "$cs_file" > /dev/null 2>&1; then
+              echo "WARN: Null-coalescing operator in $cs_file (not allowed in UdonSharp)"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if grep -Pn 'using System\.Linq' "$cs_file" > /dev/null 2>&1; then
+              echo "WARN: LINQ usage in $cs_file (not allowed in UdonSharp)"
+              ERRORS=$((ERRORS + 1))
+            fi
+            if grep -Pn 'async |await ' "$cs_file" > /dev/null 2>&1; then
+              echo "WARN: async/await in $cs_file (not allowed in UdonSharp)"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done < <(find Assets/QuantumDharma/Scripts -name '*.cs')
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "ERROR: $ERRORS UdonSharp compatibility issue(s) found"
+            exit 1
+          fi
+          echo "OK: No UdonSharp-incompatible patterns detected"
+
+      - name: Check for prohibited files
+        run: |
+          echo "=== Prohibited File Check ==="
+          FOUND=0
+          for pattern in "*.env" "credentials*" "*.key" "*.pem"; do
+            while IFS= read -r f; do
+              echo "WARN: Potentially sensitive file: $f"
+              FOUND=$((FOUND + 1))
+            done < <(find . -name "$pattern" -not -path './.git/*' 2>/dev/null)
+          done
+
+          if [ "$FOUND" -gt 0 ]; then
+            echo "WARNING: $FOUND potentially sensitive file(s) found"
+          else
+            echo "OK: No prohibited files detected"
+          fi
