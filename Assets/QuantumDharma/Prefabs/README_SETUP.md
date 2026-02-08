@@ -48,6 +48,9 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── OralHistory               ← Empty GameObject (optional)
 ├── NameGiving                ← Empty GameObject (optional)
 ├── Mythology                 ← Empty GameObject (optional)
+├── CompanionMemory           ← Empty GameObject (optional)
+├── FarewellBehavior          ← Empty GameObject (optional)
+├── SpeechOrchestrator        ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
@@ -620,6 +623,63 @@ No special components needed on the root. Position this where you want the NPC t
    - **NPC:** drag the QuantumDharmaNPC GameObject
 5. **How it works:** Mythology synthesizes collective memory and player archetypes (from NameGiving) into narrative structures — recurring themes, "legends" about memorable players, and emergent world-lore. The NPC can reference these mythological elements in speech.
 
+### 2g-xxiii. CompanionMemory (optional)
+
+1. Create an empty child GameObject under the NPC root named `CompanionMemory`
+2. Add **UdonBehaviour**
+3. Attach script: `CompanionMemory.cs`
+4. Configure in Inspector:
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Co Presence Threshold:** 30 (seconds of proximity to track as a pair)
+   - **Companion Threshold:** 3 (co-presence visits before considered companions)
+   - **Tick Interval:** 1.0 (seconds between co-presence checks)
+5. **How it works:** Tracks which players tend to appear together (co-presence pairs). When a player arrives without their usual companion, the NPC queues a missing companion signal (FIFO queue, max 4 simultaneous). The SpeechOrchestrator reads these signals and may display "...?" to express curiosity about the absent companion.
+6. **FEP interpretation:** The NPC's generative model includes social structure. A player appearing without their habitual partner violates a temporal-social prior, generating prediction error.
+
+### 2g-xxiv. FarewellBehavior (optional)
+
+1. Create an empty child GameObject under the NPC root named `FarewellBehavior`
+2. Add **UdonBehaviour**
+3. Attach script: `FarewellBehavior.cs`
+4. Configure in Inspector:
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **Gesture Controller:** (optional) drag the GestureController GameObject
+   - **Glance Duration:** 2.0 (brief farewell for low-trust departures)
+   - **Wave Duration:** 3.0 (wave goodbye for moderate trust)
+   - **Emotional Duration:** 4.0 (emotional farewell for high trust)
+   - **Friend Duration:** 5.0 (extended farewell for friends)
+5. **Farewell tiers:** Based on departing player's trust and friend status:
+   - Glance: trust < 0.2 → brief look
+   - Wave: trust 0.2–0.5 → wave gesture + short text
+   - Emotional: trust 0.5–0.8 → emotional text + gesture
+   - Friend: trust > 0.8 or isFriend → extended farewell with personalized text
+6. **Speech:** 24 bilingual farewell utterances (Japanese/English) across all tiers.
+
+### 2g-xxv. SpeechOrchestrator (optional)
+
+1. Create an empty child GameObject under the NPC root named `SpeechOrchestrator`
+2. Add **UdonBehaviour**
+3. Attach script: `SpeechOrchestrator.cs`
+4. Configure in Inspector:
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **Belief State:** drag the BeliefState GameObject
+   - **Speech Sources (optional):**
+     - **Oral History:** (optional) drag the OralHistory GameObject
+     - **Mythology:** (optional) drag the Mythology GameObject
+     - **Norm Formation:** (optional) drag the NormFormation GameObject
+     - **Companion Memory:** (optional) drag the CompanionMemory GameObject
+   - **Trust Sources (optional):**
+     - **Shared Ritual:** (optional) drag the SharedRitual GameObject
+     - **Collective Memory:** (optional) drag the CollectiveMemory GameObject
+5. **How it works:** Extracted from QuantumDharmaManager to isolate speech logic. Called once per decision tick via `Tick(npcState, focusPlayer, focusSlot)`. Handles:
+   - Companion missing signals → "...?" display
+   - Story telling → delegates to OralHistory
+   - Legend telling → delegates to Mythology
+   - Norm commentary → random chance to speak about observed norms
+   - Trust adjustments → ritual bonus, legend bonus, collective memory trust bias
+6. **QuantumDharmaNPC speech queue:** When multiple speech sources fire simultaneously, QuantumDharmaNPC queues up to 4 pending texts in a FIFO queue. Each text displays in order after the previous one expires.
+
 ### 2i. NPCMotor
 
 1. Add **UdonBehaviour**
@@ -677,6 +737,11 @@ No special components needed on the root. Position this where you want the NPC t
    - **Mythology:**
    - **Name Giving:** (optional) drag NameGiving
    - **Mythology:** (optional) drag Mythology
+   - **Speech:**
+   - **Speech Orchestrator:** (optional) drag SpeechOrchestrator
+   - **Enhanced Behavior:**
+   - **Companion Memory:** (optional) drag CompanionMemory
+   - **Farewell Behavior:** (optional) drag FarewellBehavior
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -744,6 +809,9 @@ No special components needed on the root. Position this where you want the NPC t
    - **Oral History:** (optional) drag OralHistory
    - **Name Giving:** (optional) drag NameGiving
    - **Mythology:** (optional) drag Mythology
+   - **Companion Memory:** (optional) drag CompanionMemory
+   - **Farewell Behavior:** (optional) drag FarewellBehavior
+   - **Speech Orchestrator:** (optional) drag SpeechOrchestrator
 7. Set **Start Visible** to false for production (true for testing)
 8. To enable Interact toggle, add a **Box Collider** on the DebugPanel or NPC root
 
@@ -865,6 +933,7 @@ QuantumDharmaManager
   ├─→ PlayerSensor             (reads player observations + hand/crouch)
   ├─→ MarkovBlanket            (reads trust, sends trust adjustments)
   ├─→ NPCMotor                 (issues movement commands)
+  ├─→ SpeechOrchestrator       (optional: delegates speech/trust per tick)
   ├─→ SessionMemory            (optional: save/restore player relationships)
   ├─→ TouchSensor              (optional: reads touch events + signals)
   ├─→ GiftReceiver             (optional: reads gift events + signals)
@@ -892,7 +961,9 @@ QuantumDharmaManager
   ├─→ NormFormation            (optional: reads behavioral norms per zone)
   ├─→ OralHistory              (optional: reads narrative history for speech)
   ├─→ NameGiving               (optional: reads player archetypes)
-  └─→ Mythology                (optional: reads mythological narratives for speech)
+  ├─→ Mythology                (optional: reads mythological narratives for speech)
+  ├─→ CompanionMemory          (optional: reads companion pair data + missing signals)
+  └─→ FarewellBehavior         (optional: notifies departing player for farewell)
 
 NPCMotor
   └─→ PlayerSensor             (reads closest player for convenience methods)
@@ -930,7 +1001,10 @@ DebugOverlay
   ├─→ NormFormation            (optional: reads norm strength + zone data)
   ├─→ OralHistory              (optional: reads history entries + narration state)
   ├─→ NameGiving               (optional: reads assigned names + archetype data)
-  └─→ Mythology                (optional: reads mythology entries + active narrative)
+  ├─→ Mythology                (optional: reads mythology entries + active narrative)
+  ├─→ CompanionMemory          (optional: reads companion pairs + missing signals)
+  ├─→ FarewellBehavior         (optional: reads farewell state)
+  └─→ SpeechOrchestrator       (optional: reads speech delegation state)
 
 GroupDynamics
   ├─→ PlayerSensor             (reads tracked player positions for clustering)
@@ -987,6 +1061,24 @@ Mythology
   ├─→ CollectiveMemory         (reads collective data for myth synthesis)
   ├─→ NameGiving               (reads player archetypes for narrative roles)
   └─→ QuantumDharmaNPC         (calls ForceDisplayText for mythological speech)
+
+CompanionMemory
+  └─→ PlayerSensor             (reads tracked players for co-presence detection)
+
+FarewellBehavior
+  ├─→ QuantumDharmaNPC         (calls ForceDisplayText for farewell speech)
+  └─→ GestureController        (optional: triggers wave/bow gesture on farewell)
+
+SpeechOrchestrator
+  ├─→ QuantumDharmaManager     (reads NPC state)
+  ├─→ QuantumDharmaNPC         (calls ForceDisplayText for speech output)
+  ├─→ BeliefState              (adjusts slot trust from ritual/legend/collective sources)
+  ├─→ OralHistory              (optional: triggers story telling)
+  ├─→ Mythology                (optional: triggers legend telling, reads trust bonus)
+  ├─→ NormFormation            (optional: reads norm text for commentary)
+  ├─→ CompanionMemory          (optional: reads missing companion signals)
+  ├─→ SharedRitual             (optional: reads ritual trust bonus)
+  └─→ CollectiveMemory         (optional: reads collective trust for bias adjustment)
 
 FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
@@ -1127,6 +1219,20 @@ FreeEnergyVisualizer
 - [ ] Check "Names:" line in DebugOverlay showing assigned names + archetype data
 - [ ] With CollectiveMemory and NameGiving active — verify Mythology synthesizes narrative elements
 - [ ] Check "Myth:" line in DebugOverlay showing mythology entries + active narrative
+- [ ] Two players visit NPC together repeatedly — verify CompanionMemory tracks pair
+- [ ] One player returns without the other — verify NPC displays "...?" (missing companion)
+- [ ] Three players depart simultaneously — verify FIFO queue processes all signals in order
+- [ ] Player departs at low trust — verify brief glance farewell
+- [ ] Player departs at moderate trust (0.2-0.5) — verify wave farewell + text
+- [ ] Friend departs — verify extended farewell with personalized text + gesture
+- [ ] SpeechOrchestrator: verify story telling triggers during Observe state
+- [ ] SpeechOrchestrator: verify legend telling triggers during Silence state
+- [ ] SpeechOrchestrator: verify norm commentary appears with low probability during Observe
+- [ ] Multiple speech sources fire simultaneously — verify FIFO queue displays them in sequence
+- [ ] Verify speech queue does not exceed 4 entries (oldest dropped if full)
+- [ ] Verify slot eviction when 16 players registered: lowest-significance slot freed
+- [ ] Verify adaptive tick interval: ≤8 players = base, 9-16 = 1.5×, 17-32 = 2×, 33+ = 3×
+- [ ] Run NUnit tests: Window > General > Test Runner > Edit Mode > Run All (38 tests pass)
 
 ---
 
