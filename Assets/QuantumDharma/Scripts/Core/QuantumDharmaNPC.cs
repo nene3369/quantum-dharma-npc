@@ -482,7 +482,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     }
 
     // ================================================================
-    // Vocabulary initialization (40 words)
+    // Vocabulary initialization (64 words)
     // ================================================================
 
     private void InitializeVocabulary()
