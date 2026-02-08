@@ -36,7 +36,7 @@
                └──────────────────┬──────────────────┘
                                   │ observations
                ┌──────────────────▼──────────────────┐
-               │          Core Layer (22)              │
+               │          Core Layer (24)              │
                │                                      │
                │  QuantumDharmaManager (orchestrator)  │
                │  FreeEnergyCalculator (5-ch PE)       │
@@ -60,6 +60,8 @@
                │  OralHistory (story narration)        │
                │  NameGiving (player nicknames)        │
                │  Mythology (legend creation)          │
+               │  CompanionMemory (co-presence)        │
+               │  FarewellBehavior (goodbye rituals)   │
                └──────┬──────────┬──────────┬────────┘
                       │          │          │
                ┌──────▼──┐  ┌───▼──────┐  ┌▼────────────┐
@@ -110,9 +112,14 @@ NormFormation ──violation──→ Manager (curiosity nudge)
 OralHistory ──story text──→ QuantumDharmaNPC (ForceDisplayText)
 NameGiving ──nickname──→ QuantumDharmaNPC (personalized greeting)
 Mythology ──legend tale──→ QuantumDharmaNPC (ForceDisplayText)
+CompanionMemory ──missing──→ Manager (curiosity about absent companion)
+FarewellBehavior ──farewell──→ QuantumDharmaNPC + GestureController (goodbye)
+Manager ──stage toggles──→ All components (enable/disable evolution stages)
+SessionMemory ──emotion──→ Manager (peak emotion recall on re-encounter)
+NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TrySpeak)
 ```
 
-### Component Inventory (39 scripts)
+### Component Inventory (41 scripts)
 
 #### Perception Layer (7)
 
@@ -126,15 +133,15 @@ Mythology ──legend tale──→ QuantumDharmaNPC (ForceDisplayText)
 | `GiftReceiver.cs` | None | Detects dropped VRC_Pickup objects as gifts, habituation model |
 | `VoiceDetector.cs` | None | Behavioral engagement proxy (proximity + gaze + stillness) |
 
-#### Core Layer (22)
+#### Core Layer (24)
 
 | Script | Sync Mode | Role |
 |---|---|---|
 | `QuantumDharmaManager.cs` | None | Central orchestrator: state machine, decision tick, slot registration |
 | `FreeEnergyCalculator.cs` | None | 5-channel PE: F = Σ(πᵢ_eff · PEᵢ²) - C with trust-modulated precision |
 | `BeliefState.cs` | None | Bayesian intent inference (4 intents × 9 features), kindness tracking |
-| `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 40-word vocabulary, breathing, particles |
-| `SessionMemory.cs` | Manual | Persistent player relationships (trust, kindness, friend status) |
+| `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 64-word tiered vocabulary, breathing, particles, peak emotion tracking |
+| `SessionMemory.cs` | Manual | Persistent player relationships (trust, kindness, friend, emotional memory) |
 | `DreamState.cs` | None | Offline model consolidation during zero-player periods |
 | `DreamNarrative.cs` | None | Generates contextual dream utterances on wake (4 tone types) |
 | `AdaptivePersonality.cs` | None | Long-term personality evolution: sociability, cautiousness, expressiveness |
@@ -152,6 +159,8 @@ Mythology ──legend tale──→ QuantumDharmaNPC (ForceDisplayText)
 | `OralHistory.cs` | None | Narrates accumulated memories as stories |
 | `NameGiving.cs` | None | Internal nicknames for befriended players |
 | `Mythology.cs` | None | Cross-NPC legend creation from collective memory |
+| `CompanionMemory.cs` | None | Co-presence tracking, companion pair detection, missing companion signal |
+| `FarewellBehavior.cs` | None | Trust-based farewell (glance/wave/emotional/friend), 24 bilingual utterances |
 
 #### Action Layer (7)
 
@@ -179,7 +188,7 @@ Mythology ──legend tale──→ QuantumDharmaNPC (ForceDisplayText)
 Assets/
 ├── QuantumDharma/
 │   ├── Scripts/
-│   │   ├── Core/                     # 22 scripts
+│   │   ├── Core/                     # 24 scripts
 │   │   │   ├── QuantumDharmaManager.cs
 │   │   │   ├── FreeEnergyCalculator.cs
 │   │   │   ├── BeliefState.cs
@@ -201,7 +210,9 @@ Assets/
 │   │   │   ├── NormFormation.cs
 │   │   │   ├── OralHistory.cs
 │   │   │   ├── NameGiving.cs
-│   │   │   └── Mythology.cs
+│   │   │   ├── Mythology.cs
+│   │   │   ├── CompanionMemory.cs
+│   │   │   └── FarewellBehavior.cs
 │   │   ├── Perception/               # 7 scripts
 │   │   │   ├── PlayerSensor.cs
 │   │   │   ├── MarkovBlanket.cs

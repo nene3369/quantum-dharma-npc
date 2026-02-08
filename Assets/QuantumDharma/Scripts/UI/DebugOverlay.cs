@@ -75,6 +75,10 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private NameGiving _nameGiving;
     [SerializeField] private Mythology _mythology;
 
+    [Header("References — Enhanced Behavior (optional)")]
+    [SerializeField] private CompanionMemory _companionMemory;
+    [SerializeField] private FarewellBehavior _farewellBehavior;
+
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
     [SerializeField] private Text _stateLabel;
@@ -682,6 +686,59 @@ public class DebugOverlay : UdonSharpBehaviour
                 {
                     details += " [LEGEND: " + _mythology.GetLegendTitle(fpM.playerId) + "]";
                 }
+            }
+
+            // Companion memory line
+            if (_companionMemory != null)
+            {
+                details += "\nCompanions:" + _companionMemory.GetCompanionCount().ToString() +
+                    " pairs:" + _companionMemory.GetPairCount().ToString();
+                if (_companionMemory.HasMissingCompanion())
+                {
+                    details += " [Missing!]";
+                }
+                VRCPlayerApi fpC = _manager.GetFocusPlayer();
+                if (fpC != null && fpC.IsValid())
+                {
+                    int comp = _companionMemory.GetStrongestCompanion(fpC.playerId);
+                    if (comp >= 0)
+                    {
+                        details += " buddy:" + comp.ToString() +
+                            " str:" + _companionMemory.GetCompanionStrength(fpC.playerId).ToString();
+                    }
+                }
+            }
+
+            // Farewell behavior line
+            if (_farewellBehavior != null)
+            {
+                if (_farewellBehavior.IsActive())
+                {
+                    details += "\nFarewell:" +
+                        _farewellBehavior.GetFarewellTypeName(_farewellBehavior.GetActiveFarewellType()) +
+                        " \"" + _farewellBehavior.GetLastFarewellText() + "\"";
+                }
+            }
+
+            // Vocabulary and peak emotion line
+            if (_npc != null)
+            {
+                details += "\nVocab:" + _npc.GetVocabularySize().ToString() +
+                    " peak:" + _npc.GetPeakEmotionIntensity().ToString("F2");
+            }
+
+            // Stage toggles line
+            if (_manager != null)
+            {
+                string stages = "\nStages:";
+                for (int s = 1; s <= 7; s++)
+                {
+                    if (_manager.IsStageEnabled(s))
+                        stages += " " + s.ToString();
+                    else
+                        stages += " -";
+                }
+                details += stages;
             }
 
             _detailsLabel.text = details;

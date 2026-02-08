@@ -89,6 +89,28 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private NameGiving _nameGiving;
     [SerializeField] private Mythology _mythology;
 
+    [Header("Components — Enhanced Behavior (optional)")]
+    [SerializeField] private CompanionMemory _companionMemory;
+    [SerializeField] private FarewellBehavior _farewellBehavior;
+
+    // ================================================================
+    // Stage toggles (Inspector ON/OFF per evolution stage)
+    // Stage 1 (Core) is always active.
+    // ================================================================
+    [Header("Stage Toggles")]
+    [Tooltip("Stage 2: Relationship memory (SessionMemory)")]
+    [SerializeField] private bool _enableStage2Relationship = true;
+    [Tooltip("Stage 3: Introspection (Dream, Curiosity, Contextual Speech)")]
+    [SerializeField] private bool _enableStage3Introspection = true;
+    [Tooltip("Stage 4: Social Intelligence (Group, Contagion, Attention, Habits)")]
+    [SerializeField] private bool _enableStage4Social = true;
+    [Tooltip("Stage 5: Village (Multi-NPC Relay)")]
+    [SerializeField] private bool _enableStage5Village = true;
+    [Tooltip("Stage 6: Culture (Rituals, Collective Memory, Gifts, Norms)")]
+    [SerializeField] private bool _enableStage6Culture = true;
+    [Tooltip("Stage 7: Mythology (Oral History, Naming, Legends)")]
+    [SerializeField] private bool _enableStage7Mythology = true;
+
     // ================================================================
     // Free Energy parameters (fallback when FreeEnergyCalculator not wired)
     // ================================================================
@@ -172,6 +194,55 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         _touchRetreatUntil = 0f;
         _giftForcedWarm = false;
         _giftWarmUntil = 0f;
+
+        // Apply stage toggles: null out disabled components
+        // All code already null-checks these references, so disabling is safe
+        ApplyStageToggles();
+    }
+
+    /// <summary>
+    /// Nulls out component references for disabled stages.
+    /// Called once in Start(). Since all existing code null-checks
+    /// optional components, this cleanly disables entire evolution stages.
+    /// </summary>
+    private void ApplyStageToggles()
+    {
+        if (!_enableStage2Relationship)
+        {
+            _sessionMemory = null;
+        }
+        if (!_enableStage3Introspection)
+        {
+            _dreamState = null;
+            _dreamNarrative = null;
+            _adaptivePersonality = null;
+            _curiosityDrive = null;
+            _contextualUtterance = null;
+        }
+        if (!_enableStage4Social)
+        {
+            _groupDynamics = null;
+            _emotionalContagion = null;
+            _attentionSystem = null;
+            _habitFormation = null;
+        }
+        if (!_enableStage5Village)
+        {
+            _multiNPCRelay = null;
+        }
+        if (!_enableStage6Culture)
+        {
+            _sharedRitual = null;
+            _collectiveMemory = null;
+            _giftEconomy = null;
+            _normFormation = null;
+        }
+        if (!_enableStage7Mythology)
+        {
+            _oralHistory = null;
+            _nameGiving = null;
+            _mythology = null;
+        }
     }
 
     private void Update()
@@ -345,15 +416,44 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                         int giftCount = _giftReceiver != null
                             ? _giftReceiver.GetPlayerGiftCount(oldId) : 0;
                         float departTrust = _beliefState.GetSlotTrust(bSlot);
+                        bool wasFriend = _beliefState.IsFriend(bSlot);
                         _sessionMemory.SavePlayer(
                             oldId,
                             departTrust,
                             _beliefState.GetSlotKindness(bSlot),
                             _interactionTimes[i],
                             _beliefState.GetDominantIntent(bSlot),
-                            _beliefState.IsFriend(bSlot),
+                            wasFriend,
                             giftCount
                         );
+
+                        // Save emotional memory
+                        if (_npc != null)
+                        {
+                            _sessionMemory.SavePlayerEmotion(
+                                oldId,
+                                _npc.GetPeakEmotion(),
+                                _npc.GetPeakEmotionIntensity(),
+                                _npc.GetCurrentEmotion()
+                            );
+                        }
+
+                        // Farewell behavior based on trust/friendship
+                        if (_farewellBehavior != null)
+                        {
+                            // Get last known position for this player
+                            Vector3 lastPos = transform.position;
+                            if (_playerSensor != null)
+                            {
+                                // Use NPC's own position as fallback
+                                // (player already left sensor range)
+                                lastPos = transform.position + transform.forward * 3f;
+                            }
+                            _farewellBehavior.NotifyPlayerDeparting(
+                                oldId, departTrust, wasFriend,
+                                _interactionTimes[i], lastPos
+                            );
+                        }
 
                         // Broadcast reputation to other NPCs on departure
                         if (_multiNPCRelay != null && Mathf.Abs(departTrust) >= 0.3f)
@@ -401,6 +501,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             if (_sharedRitual != null) _sharedRitual.NotifyPlayerArrived();
             if (_collectiveMemory != null) _collectiveMemory.NotifyPlayerSeen(id);
             if (_mythology != null) _mythology.NotifyCandidatePlayer(id);
+
+            // Companion memory: check if usual companion is missing
+            if (_companionMemory != null) _companionMemory.NotifyPlayerArrived(id);
 
             if (_freeEnergyCalculator != null) _freeEnergyCalculator.RegisterPlayer(id);
             if (_beliefState != null)
@@ -995,6 +1098,20 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         _npc.OnDecisionTick(_npcState, normalizedFE, trust, _dominantIntent, _focusSlot);
 
+        // Companion memory: express curiosity about missing companion
+        if (_companionMemory != null && _companionMemory.HasMissingCompanion() &&
+            _npcState == NPC_STATE_OBSERVE)
+        {
+            int missingFor = _companionMemory.GetMissingCompanionForPlayer();
+            if (_focusPlayer != null && _focusPlayer.IsValid() &&
+                _focusPlayer.playerId == missingFor)
+            {
+                // Express curiosity about the absent companion
+                _npc.ForceDisplayText("...?", 3f);
+                _companionMemory.ClearMissingCompanionSignal();
+            }
+        }
+
         // Oral history: tell stories during calm periods with players present
         if (_oralHistory != null && _focusPlayer != null &&
             _npcState == NPC_STATE_SILENCE && _oralHistory.HasStoryToTell())
@@ -1255,5 +1372,30 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public Mythology GetMythology()
     {
         return _mythology;
+    }
+
+    public CompanionMemory GetCompanionMemory()
+    {
+        return _companionMemory;
+    }
+
+    public FarewellBehavior GetFarewellBehavior()
+    {
+        return _farewellBehavior;
+    }
+
+    public bool IsStageEnabled(int stage)
+    {
+        switch (stage)
+        {
+            case 1: return true; // Core always enabled
+            case 2: return _enableStage2Relationship;
+            case 3: return _enableStage3Introspection;
+            case 4: return _enableStage4Social;
+            case 5: return _enableStage5Village;
+            case 6: return _enableStage6Culture;
+            case 7: return _enableStage7Mythology;
+            default: return false;
+        }
     }
 }
