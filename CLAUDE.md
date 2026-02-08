@@ -36,12 +36,13 @@
                └──────────────────┬──────────────────┘
                                   │ observations
                ┌──────────────────▼──────────────────┐
-               │          Core Layer (24)              │
+               │          Core Layer (25)              │
                │                                      │
                │  QuantumDharmaManager (orchestrator)  │
                │  FreeEnergyCalculator (5-ch PE)       │
                │  BeliefState (Bayesian inference)     │
                │  QuantumDharmaNPC (personality)       │
+               │  SpeechOrchestrator (speech delegate) │
                │  SessionMemory (relationship persist) │
                │  DreamState (offline consolidation)   │
                │  DreamNarrative (wake speech)         │
@@ -88,6 +89,7 @@ Perception ──observations──→ Manager ──motor commands──→ NPC
                              Manager ──belief updates──→ BeliefState
                              Manager ──FE computation──→ FreeEnergyCalculator
                              Manager ──emotion/speech──→ QuantumDharmaNPC
+                             Manager ──speech tick─────→ SpeechOrchestrator
                              Manager ──save/restore────→ SessionMemory
                              Manager ──curiosity read──→ CuriosityDrive
                              Manager ──gesture fire────→ GestureController
@@ -112,14 +114,18 @@ NormFormation ──violation──→ Manager (curiosity nudge)
 OralHistory ──story text──→ QuantumDharmaNPC (ForceDisplayText)
 NameGiving ──nickname──→ QuantumDharmaNPC (personalized greeting)
 Mythology ──legend tale──→ QuantumDharmaNPC (ForceDisplayText)
-CompanionMemory ──missing──→ Manager (curiosity about absent companion)
+CompanionMemory ──missing──→ SpeechOrchestrator (curiosity about absent companion)
 FarewellBehavior ──farewell──→ QuantumDharmaNPC + GestureController (goodbye)
+SpeechOrchestrator ──story──→ OralHistory (story telling trigger)
+SpeechOrchestrator ──legend──→ Mythology (legend telling trigger)
+SpeechOrchestrator ──norm───→ QuantumDharmaNPC (norm commentary speech)
+SpeechOrchestrator ──trust──→ BeliefState (ritual/legend/collective trust adjustment)
 Manager ──stage toggles──→ All components (enable/disable evolution stages)
 SessionMemory ──emotion──→ Manager (peak emotion recall on re-encounter)
 NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TrySpeak)
 ```
 
-### Component Inventory (41 scripts)
+### Component Inventory (42 scripts)
 
 #### Perception Layer (7)
 
@@ -133,14 +139,15 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 | `GiftReceiver.cs` | None | Detects dropped VRC_Pickup objects as gifts, habituation model |
 | `VoiceDetector.cs` | None | Behavioral engagement proxy (proximity + gaze + stillness) |
 
-#### Core Layer (24)
+#### Core Layer (25)
 
 | Script | Sync Mode | Role |
 |---|---|---|
-| `QuantumDharmaManager.cs` | None | Central orchestrator: state machine, decision tick, slot registration |
-| `FreeEnergyCalculator.cs` | None | 5-channel PE: F = Σ(πᵢ_eff · PEᵢ²) - C with trust-modulated precision |
-| `BeliefState.cs` | None | Bayesian intent inference (4 intents × 9 features), kindness tracking |
-| `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 64-word tiered vocabulary, breathing, particles, peak emotion tracking |
+| `QuantumDharmaManager.cs` | None | Central orchestrator: state machine, adaptive decision tick, slot registration, named constants |
+| `FreeEnergyCalculator.cs` | None | 5-channel PE: F = Σ(πᵢ_eff · PEᵢ²) - C with trust-modulated precision, slot eviction on overflow |
+| `BeliefState.cs` | None | Bayesian intent inference (4 intents × 9 features), log-sum-exp stabilization, slot eviction |
+| `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 64-word tiered vocabulary, speech FIFO queue, breathing, particles |
+| `SpeechOrchestrator.cs` | None | Delegates speech from Manager: stories, legends, norm commentary, companion signals, trust adjustments |
 | `SessionMemory.cs` | Manual | Persistent player relationships (trust, kindness, friend, emotional memory) |
 | `DreamState.cs` | None | Offline model consolidation during zero-player periods |
 | `DreamNarrative.cs` | None | Generates contextual dream utterances on wake (4 tone types) |
@@ -159,7 +166,7 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 | `OralHistory.cs` | None | Narrates accumulated memories as stories |
 | `NameGiving.cs` | None | Internal nicknames for befriended players |
 | `Mythology.cs` | None | Cross-NPC legend creation from collective memory |
-| `CompanionMemory.cs` | None | Co-presence tracking, companion pair detection, missing companion signal |
+| `CompanionMemory.cs` | None | Co-presence tracking, companion pair detection, FIFO missing companion signal queue |
 | `FarewellBehavior.cs` | None | Trust-based farewell (glance/wave/emotional/friend), 24 bilingual utterances |
 
 #### Action Layer (7)
@@ -188,11 +195,12 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 Assets/
 ├── QuantumDharma/
 │   ├── Scripts/
-│   │   ├── Core/                     # 24 scripts
+│   │   ├── Core/                     # 25 scripts
 │   │   │   ├── QuantumDharmaManager.cs
 │   │   │   ├── FreeEnergyCalculator.cs
 │   │   │   ├── BeliefState.cs
 │   │   │   ├── QuantumDharmaNPC.cs
+│   │   │   ├── SpeechOrchestrator.cs
 │   │   │   ├── SessionMemory.cs
 │   │   │   ├── DreamState.cs
 │   │   │   ├── DreamNarrative.cs
@@ -233,8 +241,13 @@ Assets/
 │   │       ├── DebugOverlay.cs
 │   │       ├── FreeEnergyVisualizer.cs
 │   │       └── TrustVisualizer.cs
+│   ├── Tests/
+│   │   └── Editor/                   # NUnit test suite
+│   │       ├── FreeEnergyMathTests.cs
+│   │       ├── BeliefUpdateMathTests.cs
+│   │       └── QuantumDharma.Tests.Editor.asmdef
 │   ├── Prefabs/
-│   │   └── README_SETUP.md          # Inspector wiring guide (95 test items)
+│   │   └── README_SETUP.md          # Inspector wiring guide (130+ test items)
 │   ├── Animations/                   # Animator controllers and clips
 │   ├── Materials/                    # NPC materials and shaders
 │   └── Scenes/                       # Test world scenes
@@ -306,7 +319,11 @@ UdonSharp is a strict subset of C#. Observe these limitations:
 - **Local testing:** Use VRChat SDK's "Build & Test" to launch a local instance
 - **Multi-user testing:** "Build & Test" with "Number of Clients" > 1
 - **Debug overlays:** Enable the in-world debug UI panel to inspect free energy, belief state, and action selection in real time
-- **Unit logic validation:** Core math (free energy calculation, belief update, precision weighting) should be testable in isolation via Unity Test Runner (NUnit) on plain C# wrappers where possible, since UdonSharp cannot run in Edit Mode tests directly
+- **Unit tests:** 38 NUnit tests in `Assets/QuantumDharma/Tests/Editor/`:
+  - `FreeEnergyMathTests.cs` (20 tests): ground state clamping, multi-channel PE, precision weighting, trust integration, normalization, division guards
+  - `BeliefUpdateMathTests.cs` (18 tests): posterior normalization, Gaussian likelihood, Bayesian update, entropy/confidence, trust dynamics, intent history
+  - Run via Unity Test Runner (Window > General > Test Runner > Edit Mode)
+  - Tests use plain C# math wrappers since UdonSharp cannot run in Edit Mode directly
 
 ## Git Rules
 
