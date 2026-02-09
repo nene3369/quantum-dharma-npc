@@ -96,7 +96,7 @@ public class PostureDetector : UdonSharpBehaviour
             // Clamp to avoid negative values (edge cases with tracking)
             if (headHeight < 0f) headHeight = 0f;
 
-            float ratio = headHeight / eyeHeight;
+            float ratio = headHeight / Mathf.Max(eyeHeight, 0.01f);
             _headHeightRatios[i] = ratio;
             _isCrouching[i] = ratio < _crouchThreshold;
         }
@@ -140,7 +140,7 @@ public class PostureDetector : UdonSharpBehaviour
         if (!_isCrouching[index]) return 0f;
 
         // Normalize: 1.0 at ratio 0, 0.0 at crouchThreshold
-        float normalized = 1f - Mathf.Clamp01(_headHeightRatios[index] / _crouchThreshold);
+        float normalized = 1f - Mathf.Clamp01(_headHeightRatios[index] / Mathf.Max(_crouchThreshold, 0.001f));
         return normalized;
     }
 

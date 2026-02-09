@@ -478,7 +478,7 @@ public class NormFormation : UdonSharpBehaviour
         float closestDistSqr = float.MaxValue;
         int closestZone = -1;
 
-        for (int z = 0; z < _activeZoneCount; z++)
+        for (int z = 0; z < MAX_ZONES; z++)
         {
             if (!_zoneActive[z]) continue;
 

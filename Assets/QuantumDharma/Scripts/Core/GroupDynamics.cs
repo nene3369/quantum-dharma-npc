@@ -162,6 +162,8 @@ public class GroupDynamics : UdonSharpBehaviour
         if (_playerSensor == null || _beliefState == null) return;
 
         int playerCount = _playerSensor.GetTrackedPlayerCount();
+        // Clamp to buffer size to prevent OOB on _visited/_clusterBuffer
+        if (playerCount > MAX_SLOTS) playerCount = MAX_SLOTS;
 
         // Reset visited flags
         for (int i = 0; i < MAX_SLOTS; i++)
@@ -205,8 +207,8 @@ public class GroupDynamics : UdonSharpBehaviour
             }
             else
             {
-                // Check if it matches a candidate
-                int matchedCandidate = FindMatchingCandidate(newCandidateCount);
+                // Check if it matches a candidate from previous tick
+                int matchedCandidate = FindMatchingCandidate(_candidateCount);
                 if (matchedCandidate >= 0)
                 {
                     // Update candidate timer

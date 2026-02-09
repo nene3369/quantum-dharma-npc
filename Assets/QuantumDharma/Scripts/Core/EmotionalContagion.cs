@@ -159,12 +159,10 @@ public class EmotionalContagion : UdonSharpBehaviour
             // Skip empty slots (no meaningful posterior)
             if (intentP < 0.01f) continue;
 
-            // Estimate behavior PE if calculator available
-            float behaviorPE = 0f;
-            if (_freeEnergyCalculator != null)
-            {
-                behaviorPE = _freeEnergyCalculator.GetSlotPE(s, FreeEnergyCalculator.CH_BEHAVIOR);
-            }
+            // Estimate behavior erraticness from intent confidence:
+            // low confidence = unpredictable behavior = high "behavioral PE"
+            // (Avoids cross-referencing FE slot indices which may diverge after eviction)
+            float behaviorPE = 1f - intentP;
 
             // Map intent + behavior to mood
             int mood = MOOD_NEUTRAL;

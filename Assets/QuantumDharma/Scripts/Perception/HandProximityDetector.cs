@@ -152,7 +152,7 @@ public class HandProximityDetector : UdonSharpBehaviour
         if (!_isReachingOut[index]) return 0f;
 
         // Normalize: 1.0 at distance 0, 0.0 at reachThreshold
-        float normalized = 1f - Mathf.Clamp01(_closestHandDistances[index] / _reachThreshold);
+        float normalized = 1f - Mathf.Clamp01(_closestHandDistances[index] / Mathf.Max(_reachThreshold, 0.001f));
         return normalized;
     }
 }

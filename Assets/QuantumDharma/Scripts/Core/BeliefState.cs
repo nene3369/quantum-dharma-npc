@@ -124,6 +124,9 @@ public class BeliefState : UdonSharpBehaviour
     // Prior array (for convenience)
     private float[] _prior;
 
+    // Tick interval (set by Manager each tick for adaptive scaling)
+    private float _tickInterval = 0.5f;
+
     // Pre-allocated scratch buffers (avoid GC per tick)
     private float[] _scratchFeatures;
     private float[] _scratchPosterior;
@@ -346,6 +349,16 @@ public class BeliefState : UdonSharpBehaviour
         }
     }
 
+    /// <summary>Set the tick interval for adaptive scaling. Call once per tick from Manager.</summary>
+    public void SetTickInterval(float interval) { _tickInterval = Mathf.Max(interval, 0.01f); }
+
+    /// <summary>Returns the playerId for a given slot, or -1 if inactive.</summary>
+    public int GetSlotPlayerId(int slot)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS || !_slotActive[slot]) return -1;
+        return _slotPlayerIds[slot];
+    }
+
     public int FindSlot(int playerId)
     {
         for (int i = 0; i < MAX_SLOTS; i++)
@@ -513,8 +526,8 @@ public class BeliefState : UdonSharpBehaviour
         // Kindness integration: accumulate when friendly posterior exceeds threshold
         if (friendlyP > _kindnessThreshold)
         {
-            // Use fixed decision interval (called from Manager's 0.5s tick, not per-frame)
-            _slotKindness[slot] += friendlyP * _kindnessRate * 0.5f;
+            // Use tick interval (set by Manager, scales with adaptive interval)
+            _slotKindness[slot] += friendlyP * _kindnessRate * _tickInterval;
         }
     }
 

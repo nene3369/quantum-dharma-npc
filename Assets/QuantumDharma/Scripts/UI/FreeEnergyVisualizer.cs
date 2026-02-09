@@ -116,7 +116,8 @@ public class FreeEnergyVisualizer : UdonSharpBehaviour
         float radius = _markovBlanket != null ? _markovBlanket.GetCurrentRadius() : 5f;
         Vector3 center = transform.position + Vector3.up * _ringHeight;
 
-        float angleStep = 360f / _segmentCount;
+        int segments = _segmentCount > 0 ? _segmentCount : 32;
+        float angleStep = 360f / segments;
         for (int i = 0; i <= _segmentCount; i++)
         {
             float angle = i * angleStep * Mathf.Deg2Rad;

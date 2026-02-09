@@ -631,7 +631,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             {
                 if (_lastTrackedIds[j] == id)
                 {
-                    _tempInteractionTimes[i] = _interactionTimes[j] + _decisionInterval;
+                    _tempInteractionTimes[i] = _interactionTimes[j] + _effectiveInterval;
                     foundPrev = true;
                     break;
                 }
@@ -708,7 +708,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         // Compute with trust
         float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
-        _freeEnergyCalculator.ComputeAll(trust);
+        _freeEnergyCalculator.ComputeAll(trust, _effectiveInterval);
 
         // Read back aggregate
         _freeEnergy = _freeEnergyCalculator.GetTotalFreeEnergy();
@@ -737,7 +737,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             return;
         }
 
-        _predictionErrorDistance = Mathf.Abs(_focusDistance - _comfortableDistance) / _comfortableDistance;
+        _predictionErrorDistance = Mathf.Abs(_focusDistance - _comfortableDistance) / Mathf.Max(_comfortableDistance, 0.01f);
         _predictionErrorVelocity = Mathf.Max(0f, _focusApproachSpeed) / Mathf.Max(_gentleApproachSpeed, 0.01f);
         _predictionErrorGaze = Mathf.Max(0f, _focusGazeDot);
 
@@ -754,6 +754,8 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     private void UpdateBeliefState()
     {
         if (_playerSensor == null) return;
+        // Propagate adaptive interval to BeliefState for kindness accumulation
+        if (_beliefState != null) _beliefState.SetTickInterval(_effectiveInterval);
 
         int count = Mathf.Min(_playerSensor.GetTrackedPlayerCount(), MAX_TRACK);
         for (int i = 0; i < count; i++)
