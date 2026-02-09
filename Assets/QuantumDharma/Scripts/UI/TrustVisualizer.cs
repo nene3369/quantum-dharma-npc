@@ -147,7 +147,7 @@ public class TrustVisualizer : UdonSharpBehaviour
         // Friend override: golden aura
         if (_beliefState != null && _manager != null)
         {
-            int focusSlot = _manager.GetFocusSlot();
+            int focusSlot = _manager.GetFocusSlotBelief();
             if (focusSlot >= 0 && _beliefState.IsFriend(focusSlot))
             {
                 baseEmission = _emissionFriend;

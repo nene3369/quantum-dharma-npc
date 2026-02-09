@@ -123,7 +123,7 @@ public class MirrorBehavior : UdonSharpBehaviour
         float trust = 0f;
         if (_beliefState != null)
         {
-            int focusSlot = _manager.GetFocusSlot();
+            int focusSlot = _manager.GetFocusSlotBelief();
             if (focusSlot >= 0)
             {
                 trust = _beliefState.GetSlotTrust(focusSlot);

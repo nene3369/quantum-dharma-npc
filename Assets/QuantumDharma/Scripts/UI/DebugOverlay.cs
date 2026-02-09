@@ -235,7 +235,7 @@ public class DebugOverlay : UdonSharpBehaviour
 
             if (_beliefState != null)
             {
-                int focusSlot = _manager.GetFocusSlot();
+                int focusSlot = _manager.GetFocusSlotBelief();
                 if (focusSlot >= 0)
                 {
                     float slotTrust = _beliefState.GetSlotTrust(focusSlot);
@@ -349,7 +349,7 @@ public class DebugOverlay : UdonSharpBehaviour
             // Belief state line
             if (_beliefState != null)
             {
-                int focusSlot = _manager.GetFocusSlot();
+                int focusSlot = _manager.GetFocusSlotBelief();
                 if (focusSlot >= 0)
                 {
                     int dominant = _beliefState.GetDominantIntent(focusSlot);
@@ -571,7 +571,7 @@ public class DebugOverlay : UdonSharpBehaviour
             {
                 int groups = _groupDynamics.GetActiveGroupCount();
                 details += "\nGroups:" + groups.ToString();
-                int focusSlotG = _manager.GetFocusSlot();
+                int focusSlotG = _manager.GetFocusSlotBelief();
                 if (focusSlotG >= 0)
                 {
                     int gId = _groupDynamics.GetGroupId(focusSlotG);
@@ -602,7 +602,7 @@ public class DebugOverlay : UdonSharpBehaviour
                 details += "\nAttn focus:" + attnFocus.ToString() +
                     " slots:" + _attentionSystem.GetAttendedSlotCount().ToString() +
                     " budget:" + _attentionSystem.GetAttentionBudgetRemaining().ToString("F2");
-                int focusSlotA = _manager.GetFocusSlot();
+                int focusSlotA = _manager.GetFocusSlotBelief();
                 if (focusSlotA >= 0)
                 {
                     details += " lv:" + _attentionSystem.GetAttention(focusSlotA).ToString("F2") +
@@ -729,7 +729,7 @@ public class DebugOverlay : UdonSharpBehaviour
             // Belief confidence for focus slot
             if (_manager != null && _manager.GetBeliefState() != null)
             {
-                int fSlot = _manager.GetFocusSlot();
+                int fSlot = _manager.GetFocusSlotBelief();
                 if (fSlot >= 0)
                 {
                     BeliefState bs = _manager.GetBeliefState();
@@ -743,7 +743,7 @@ public class DebugOverlay : UdonSharpBehaviour
                 GroupDynamics gd = _manager.GetGroupDynamics();
                 if (gd != null)
                 {
-                    int fSlotG = _manager.GetFocusSlot();
+                    int fSlotG = _manager.GetFocusSlotBelief();
                     if (fSlotG >= 0)
                     {
                         int role = gd.GetGroupRole(fSlotG);

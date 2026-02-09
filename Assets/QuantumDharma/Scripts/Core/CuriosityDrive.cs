@@ -119,7 +119,7 @@ public class CuriosityDrive : UdonSharpBehaviour
     {
         if (_beliefState == null) return;
 
-        int focusSlot = _manager != null ? _manager.GetFocusSlot() : -1;
+        int focusSlot = _manager != null ? _manager.GetFocusSlotBelief() : -1;
 
         for (int i = 0; i < MAX_SLOTS; i++)
         {
@@ -206,7 +206,7 @@ public class CuriosityDrive : UdonSharpBehaviour
             VRCPlayerApi fp = _manager.GetFocusPlayer();
             if (fp != null && fp.IsValid())
             {
-                int focusSlot = _manager.GetFocusSlot();
+                int focusSlot = _manager.GetFocusSlotBelief();
                 if (focusSlot == slot)
                 {
                     int playerId = fp.playerId;
@@ -233,7 +233,7 @@ public class CuriosityDrive : UdonSharpBehaviour
     private void ComputeAggregateCuriosity()
     {
         float maxNovelty = 0f;
-        int focusSlot = _manager != null ? _manager.GetFocusSlot() : -1;
+        int focusSlot = _manager != null ? _manager.GetFocusSlotBelief() : -1;
         _focusCuriosity = 0f;
 
         for (int i = 0; i < MAX_SLOTS; i++)
