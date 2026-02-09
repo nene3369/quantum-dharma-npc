@@ -111,6 +111,9 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
     // Effective precision per channel (trust-modulated)
     private float[] _effectivePrecision; // [CH_COUNT] — same for all slots per tick
 
+    // Per-slot attention-based precision multiplier (from AttentionSystem)
+    private float[] _slotPrecisionMultiplier; // [slot], default 1.0
+
     // Behavior channel: velocity history ring buffer per slot
     private float[] _velocityHistory;    // [slot * _behaviorWindowSize + i]
     private int[] _velocityHistoryIdx;   // current write index per slot
@@ -134,6 +137,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         _slotActive = new bool[MAX_SLOTS];
         _slotFreeEnergy = new float[MAX_SLOTS];
         _slotPrevFreeEnergy = new float[MAX_SLOTS];
+        _slotPrecisionMultiplier = new float[MAX_SLOTS];
         _pe = new float[MAX_SLOTS * CH_COUNT];
         _effectivePrecision = new float[CH_COUNT];
         _velocityHistory = new float[MAX_SLOTS * _behaviorWindowSize];
@@ -143,6 +147,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         {
             _slotPlayerIds[i] = -1;
             _slotActive[i] = false;
+            _slotPrecisionMultiplier[i] = 1.0f;
         }
 
         _activeSlotCount = 0;
@@ -179,6 +184,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
                 _slotActive[i] = true;
                 _slotFreeEnergy[i] = 0f;
                 _slotPrevFreeEnergy[i] = 0f;
+                _slotPrecisionMultiplier[i] = 1.0f;
                 _activeSlotCount++;
 
                 // Clear velocity history
@@ -215,6 +221,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
             _slotActive[evictSlot] = true;
             _slotFreeEnergy[evictSlot] = 0f;
             _slotPrevFreeEnergy[evictSlot] = 0f;
+            _slotPrecisionMultiplier[evictSlot] = 1.0f;
             for (int j = 0; j < _behaviorWindowSize; j++)
             {
                 _velocityHistory[evictSlot * _behaviorWindowSize + j] = 0f;
@@ -243,6 +250,17 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Set per-slot attention-based precision multiplier. Called by Manager
+    /// each tick with values from AttentionSystem.GetPrecisionMultiplier().
+    /// Range [0.5, 2.0]: low attention = reduced precision, high = amplified.
+    /// </summary>
+    public void SetSlotPrecisionMultiplier(int slot, float multiplier)
+    {
+        if (slot < 0 || slot >= MAX_SLOTS) return;
+        _slotPrecisionMultiplier[slot] = Mathf.Clamp(multiplier, 0.1f, 5.0f);
     }
 
     /// <summary>Find the slot index for a given playerId. Returns -1 if not found.</summary>
@@ -362,13 +380,15 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
 
             _slotPrevFreeEnergy[s] = _slotFreeEnergy[s];
 
-            // F = Σ(πᵢ_eff · PEᵢ²) - C
+            // F = attentionMultiplier × Σ(πᵢ_eff · PEᵢ²) - C
+            // Attention modulates overall precision for this slot (FEP: attention IS precision)
             float f = 0f;
             int baseIdx = s * CH_COUNT;
+            float attnMul = _slotPrecisionMultiplier[s];
             for (int c = 0; c < CH_COUNT; c++)
             {
                 float pe = _pe[baseIdx + c];
-                f += _effectivePrecision[c] * pe * pe;
+                f += _effectivePrecision[c] * attnMul * pe * pe;
             }
             f -= _complexityCost;
             f = Mathf.Max(0f, f); // F cannot be negative (ground state = 0)
