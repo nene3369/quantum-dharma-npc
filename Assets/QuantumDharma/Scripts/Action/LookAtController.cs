@@ -242,16 +242,25 @@ public class LookAtController : UdonSharpBehaviour
         switch (npcState)
         {
             case QuantumDharmaManager.NPC_STATE_SILENCE:
+            case QuantumDharmaManager.NPC_STATE_WANDER:
                 ComputeIdleDrift();
                 break;
 
             case QuantumDharmaManager.NPC_STATE_OBSERVE:
             case QuantumDharmaManager.NPC_STATE_APPROACH:
+            case QuantumDharmaManager.NPC_STATE_GREET:
+            case QuantumDharmaManager.NPC_STATE_PLAY:
                 ComputePlayerTracking(focusPlayer);
                 break;
 
             case QuantumDharmaManager.NPC_STATE_RETREAT:
                 ComputeRetreatGaze(focusPlayer);
+                break;
+
+            case QuantumDharmaManager.NPC_STATE_MEDITATE:
+                // Meditate: slow downward gaze, very low weight
+                _desiredLookTarget = transform.position + transform.forward * 2f + Vector3.down * 1.5f;
+                _targetWeight = 0.2f;
                 break;
 
             default:

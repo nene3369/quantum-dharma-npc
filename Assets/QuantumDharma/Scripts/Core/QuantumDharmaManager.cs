@@ -12,7 +12,7 @@ using VRC.Udon;
 ///   3. Feeds observations to FreeEnergyCalculator (5-channel PE)
 ///   4. Feeds observations to BeliefState (Bayesian intent inference)
 ///   5. Reads back F, trust, dominant intent
-///   6. Selects NPC behavioral state (Silence / Observe / Approach / Retreat)
+///   6. Selects NPC behavioral state (Silence / Observe / Approach / Retreat / Wander / Meditate / Greet / Play)
 ///   7. Issues motor commands to NPCMotor
 ///   8. Updates MarkovBlanket trust from BeliefState aggregate
 ///   9. Notifies QuantumDharmaNPC personality layer
@@ -29,6 +29,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public const int NPC_STATE_OBSERVE  = 1;
     public const int NPC_STATE_APPROACH = 2;
     public const int NPC_STATE_RETREAT  = 3;
+    public const int NPC_STATE_WANDER   = 4;  // autonomous exploration
+    public const int NPC_STATE_MEDITATE = 5;  // deep stillness (alone + calm)
+    public const int NPC_STATE_GREET    = 6;  // active greeting (friend return)
+    public const int NPC_STATE_PLAY     = 7;  // playful engagement (high trust + curiosity)
 
     // ================================================================
     // Component references (wire in Inspector)
@@ -95,6 +99,11 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [Header("Components — Enhanced Behavior (optional)")]
     [SerializeField] private CompanionMemory _companionMemory;
     [SerializeField] private FarewellBehavior _farewellBehavior;
+
+    [Header("Components — Autonomy (optional)")]
+    [SerializeField] private AutonomousGoals _autonomousGoals;
+    [SerializeField] private EnvironmentAwareness _environmentAwareness;
+    [SerializeField] private ImitationLearning _imitationLearning;
 
     // ================================================================
     // Stage toggles (Inspector ON/OFF per evolution stage)
@@ -1014,7 +1023,8 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         if (_focusPlayer == null)
         {
-            _npcState = NPC_STATE_SILENCE;
+            // No players: choose between Silence, Wander, or Meditate
+            _npcState = _SelectIdleState();
             return;
         }
 
@@ -1055,10 +1065,16 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             normCuriosityBias = NORM_CURIOSITY_BIAS;
         }
 
-        float effectiveActionCost = _actionCostThreshold - curiosityBias - lonelinessBias - ritualBias - normCuriosityBias;
+        // Environment: nighttime caution raises effective retreat sensitivity
+        float envCautionBias = _environmentAwareness != null ? _environmentAwareness.GetTimeOfDayCautionBias() : 0f;
+
+        // AutonomousGoals: social need lowers action cost (eager to engage)
+        float goalSocialBias = _autonomousGoals != null ? Mathf.Max(_autonomousGoals.GetSocialBias(), 0f) * 0.2f : 0f;
+
+        float effectiveActionCost = _actionCostThreshold - curiosityBias - lonelinessBias - ritualBias - normCuriosityBias - goalSocialBias;
         float effectiveApproachThreshold = _approachThreshold - curiosityBias * CURIOSITY_APPROACH_SCALE;
         float effectiveFreeEnergy = Mathf.Max(0f, _freeEnergy - fofReduction - indirectKindnessReduction);
-        float effectiveRetreatThreshold = _retreatThreshold - crowdAnxietyBias;
+        float effectiveRetreatThreshold = _retreatThreshold - crowdAnxietyBias - envCautionBias;
 
         if (effectiveFreeEnergy < effectiveActionCost)
         {
@@ -1094,6 +1110,33 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             }
         }
 
+        // Greet state: friend returned and trust is high
+        if (_contextualUtterance != null && trust >= 0.5f)
+        {
+            bool friendReturned = _sessionMemory != null && _focusPlayer != null
+                && _focusPlayer.IsValid() && _sessionMemory.HasPlayerData(_focusPlayer.playerId)
+                && _beliefState != null && _focusSlotBelief >= 0
+                && _beliefState.IsFriend(_focusSlotBelief);
+            if (friendReturned && _npcState != NPC_STATE_GREET && _npcState != NPC_STATE_APPROACH)
+            {
+                _npcState = NPC_STATE_GREET;
+                return;
+            }
+        }
+
+        // Play state: high trust + high curiosity + friendly intent
+        if (trust >= 0.5f && curiosityBias > 0.15f)
+        {
+            bool playful = _beliefState != null && _focusSlotBelief >= 0
+                && _beliefState.GetDominantIntent(_focusSlotBelief) == BeliefState.INTENT_FRIENDLY
+                && effectiveFreeEnergy < effectiveApproachThreshold * 0.8f;
+            if (playful)
+            {
+                _npcState = NPC_STATE_PLAY;
+                return;
+            }
+        }
+
         // Standard thresholds
         if (effectiveFreeEnergy < effectiveApproachThreshold && trust >= _approachTrustMin)
         {
@@ -1102,6 +1145,63 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         _npcState = NPC_STATE_OBSERVE;
+    }
+
+    /// <summary>
+    /// Select idle state when no focus player is present.
+    /// Wander: loneliness is high or habit expects visitors.
+    /// Meditate: calm, low FE, been silent for a while.
+    /// Silence: default ground state.
+    /// </summary>
+    private int _SelectIdleState()
+    {
+        float loneliness = _habitFormation != null ? _habitFormation.GetLonelinessSignal() : 0f;
+        bool isDreaming = _dreamState != null && _dreamState.IsInDreamCycle();
+
+        // AutonomousGoals provides stronger bias signals when wired
+        float meditateBias = 0f;
+        float wanderBias = 0f;
+        if (_autonomousGoals != null)
+        {
+            meditateBias = _autonomousGoals.GetMeditateBias();
+            wanderBias = _autonomousGoals.GetWanderBias();
+        }
+
+        // EnvironmentAwareness: night-time favors meditation
+        if (_environmentAwareness != null && _environmentAwareness.IsNight())
+        {
+            meditateBias += _environmentAwareness.GetTimeOfDayCalmBias();
+        }
+
+        // Meditate: calm, low FE, or needs say so
+        if (!isDreaming && _freeEnergy < 0.2f)
+        {
+            // Personality: cautious/low-sociability NPCs meditate more
+            if (_adaptivePersonality != null)
+            {
+                meditateBias += (1f - _adaptivePersonality.GetSociability()) * 0.5f;
+            }
+            if (meditateBias > 0.2f || (loneliness < 0.1f && Random.Range(0f, 1f) < 0.1f))
+            {
+                return NPC_STATE_MEDITATE;
+            }
+        }
+
+        // Wander: loneliness, curiosity need, or autonomous goal pressure
+        if (!isDreaming)
+        {
+            float wanderChance = loneliness + Mathf.Max(wanderBias, 0f);
+            if (_adaptivePersonality != null)
+            {
+                wanderChance *= _adaptivePersonality.GetSociability();
+            }
+            if (wanderChance > 0.15f)
+            {
+                return NPC_STATE_WANDER;
+            }
+        }
+
+        return NPC_STATE_SILENCE;
     }
 
     // ================================================================
@@ -1145,6 +1245,33 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             case NPC_STATE_RETREAT:
                 if (_focusPlayer != null && _focusPlayer.IsValid())
                     _npcMotor.WalkAwayFromPlayer(_focusPlayer);
+                break;
+            case NPC_STATE_WANDER:
+                // Obstacle avoidance: stop or redirect if blocked
+                if (_environmentAwareness != null &&
+                    (_environmentAwareness.HasObstacleAhead() || !_environmentAwareness.HasGroundAhead()))
+                {
+                    _npcMotor.Stop();
+                }
+                else if (_idleWaypoints != null)
+                {
+                    _idleWaypoints.UpdatePatrol(_npcMotor);
+                }
+                break;
+            case NPC_STATE_MEDITATE:
+                // Deep stillness — stop all movement
+                if (!_npcMotor.IsIdle()) _npcMotor.Stop();
+                if (_idleWaypoints != null) _idleWaypoints.StopPatrol();
+                break;
+            case NPC_STATE_GREET:
+                // Walk toward returning friend
+                if (_focusPlayer != null && _focusPlayer.IsValid())
+                    _npcMotor.WalkTowardPlayer(_focusPlayer);
+                break;
+            case NPC_STATE_PLAY:
+                // Approach playfully (same motor command but different emotion/gesture)
+                if (_focusPlayer != null && _focusPlayer.IsValid())
+                    _npcMotor.WalkTowardPlayer(_focusPlayer);
                 break;
         }
     }
@@ -1280,6 +1407,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             case NPC_STATE_OBSERVE:  return "Observe";
             case NPC_STATE_APPROACH: return "Approach";
             case NPC_STATE_RETREAT:  return "Retreat";
+            case NPC_STATE_WANDER:   return "Wander";
+            case NPC_STATE_MEDITATE: return "Meditate";
+            case NPC_STATE_GREET:    return "Greet";
+            case NPC_STATE_PLAY:     return "Play";
             default:                 return "Unknown";
         }
     }
@@ -1427,6 +1558,21 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public SpeechOrchestrator GetSpeechOrchestrator()
     {
         return _speechOrchestrator;
+    }
+
+    public AutonomousGoals GetAutonomousGoals()
+    {
+        return _autonomousGoals;
+    }
+
+    public EnvironmentAwareness GetEnvironmentAwareness()
+    {
+        return _environmentAwareness;
+    }
+
+    public ImitationLearning GetImitationLearning()
+    {
+        return _imitationLearning;
     }
 
     public bool IsStageEnabled(int stage)
