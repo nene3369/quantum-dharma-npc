@@ -235,6 +235,34 @@ public class GestureController : UdonSharpBehaviour
         {
             TryGesture(GESTURE_BECKON, trust);
         }
+
+        // → Greet: wave then bow chain for returning friend
+        if (npcState == QuantumDharmaManager.NPC_STATE_GREET &&
+            _lastNpcState != QuantumDharmaManager.NPC_STATE_GREET)
+        {
+            PlayGestureChain(GESTURE_WAVE, GESTURE_BOW, 1.5f, trust);
+        }
+
+        // → Play: beckon (come play!) or head tilt (curious energy)
+        if (npcState == QuantumDharmaManager.NPC_STATE_PLAY &&
+            _lastNpcState != QuantumDharmaManager.NPC_STATE_PLAY)
+        {
+            if (trust >= _beckonTrustMin)
+            {
+                TryGesture(GESTURE_BECKON, trust);
+            }
+            else
+            {
+                TryGesture(GESTURE_HEAD_TILT, trust);
+            }
+        }
+
+        // → Meditate: slow shake (gentle withdrawal gesture)
+        if (npcState == QuantumDharmaManager.NPC_STATE_MEDITATE &&
+            _lastNpcState != QuantumDharmaManager.NPC_STATE_MEDITATE)
+        {
+            TryGesture(GESTURE_SHAKE, trust);
+        }
     }
 
     // ================================================================
@@ -277,9 +305,11 @@ public class GestureController : UdonSharpBehaviour
 
     private void CheckIdleGestures(int npcState, int emotion, float trust, float dt)
     {
-        // Only during Observe or Approach
+        // Only during engaged states (Observe, Approach, Greet, Play)
         if (npcState != QuantumDharmaManager.NPC_STATE_OBSERVE &&
-            npcState != QuantumDharmaManager.NPC_STATE_APPROACH)
+            npcState != QuantumDharmaManager.NPC_STATE_APPROACH &&
+            npcState != QuantumDharmaManager.NPC_STATE_GREET &&
+            npcState != QuantumDharmaManager.NPC_STATE_PLAY)
         {
             _idleGestureTimer = 0f;
             return;
@@ -340,6 +370,30 @@ public class GestureController : UdonSharpBehaviour
             else
             {
                 TryGesture(GESTURE_WAVE, trust);
+            }
+        }
+        else if (npcState == QuantumDharmaManager.NPC_STATE_GREET)
+        {
+            // Greeting: warm nod or bow
+            if (Random.Range(0f, 1f) > 0.6f)
+            {
+                TryGesture(GESTURE_BOW, trust);
+            }
+            else
+            {
+                TryGesture(GESTURE_NOD, trust);
+            }
+        }
+        else if (npcState == QuantumDharmaManager.NPC_STATE_PLAY)
+        {
+            // Playing: head tilt (curious) or beckon (inviting)
+            if (Random.Range(0f, 1f) > 0.5f)
+            {
+                TryGesture(GESTURE_HEAD_TILT, trust);
+            }
+            else
+            {
+                TryGesture(GESTURE_BECKON, trust);
             }
         }
     }

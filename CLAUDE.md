@@ -36,7 +36,7 @@
                └──────────────────┬──────────────────┘
                                   │ observations
                ┌──────────────────▼──────────────────┐
-               │          Core Layer (27)              │
+               │          Core Layer (29)              │
                │                                      │
                │  QuantumDharmaManager (orchestrator)  │
                │  FreeEnergyCalculator (5-ch PE)       │
@@ -65,11 +65,14 @@
                │  FarewellBehavior (goodbye rituals)   │
                │  PersonalityPreset (archetype data)   │
                │  PersonalityInstaller (preset apply)  │
+               │  AutonomousGoals (needs/motivations)  │
+               │  EnvironmentAwareness (time/obstacles)│
+               │  ImitationLearning (behavioral mirror)│
                └──────┬──────────┬──────────┬────────┘
                       │          │          │
                ┌──────▼──┐  ┌───▼──────┐  ┌▼────────────┐
                │ Action  │  │ Boundary │  │  UI Layer   │
-               │ (8)     │  │          │  │  (3)        │
+               │ (9)     │  │          │  │  (3)        │
                │         │  │ Markov   │  │             │
                │ NPCMotor│  │ Blanket  │  │ DebugOverlay│
                │ LookAt  │  │          │  │ FreeEnergy  │
@@ -81,6 +84,8 @@
                │ Idle    │  │          │  │             │
                │ Waypts  │  │          │  │             │
                │ Facial  │  │          │  │             │
+               │ Upper   │  │          │  │             │
+               │  BodyIK │  │          │  │             │
                └─────────┘  └──────────┘  └─────────────┘
 ```
 
@@ -131,9 +136,15 @@ PersonalityInstaller ──SetProgramVariable──→ 10 components (runtime pa
 PersonalityInstaller ──avatar switch──→ GameObject[] (enable/disable models)
 EmotionAnimator ──emotion weights──→ FacialExpressionController (blend shapes)
 QuantumDharmaNPC ──IsSpeaking──→ FacialExpressionController (lip sync trigger)
+AutonomousGoals ──need bias──→ Manager (idle state + action cost modulation)
+EnvironmentAwareness ──caution──→ Manager (retreat threshold + obstacle avoidance)
+EnvironmentAwareness ──obstacle──→ Manager (wander motor stop on blocked)
+ImitationLearning ──adapted speed──→ NPCMotor (mirrored approach/distance)
+UpperBodyIK ──spine lean──→ Animator bones (LateUpdate overlay)
+UpperBodyIK ──hand reach──→ Animator bones (trust-based extension)
 ```
 
-### Component Inventory (45 scripts)
+### Component Inventory (49 scripts)
 
 #### Perception Layer (7)
 
@@ -147,11 +158,11 @@ QuantumDharmaNPC ──IsSpeaking──→ FacialExpressionController (lip sync 
 | `GiftReceiver.cs` | None | Detects dropped VRC_Pickup objects as gifts, habituation model |
 | `VoiceDetector.cs` | None | Behavioral engagement proxy (proximity + gaze + stillness) |
 
-#### Core Layer (27)
+#### Core Layer (29)
 
 | Script | Sync Mode | Role |
 |---|---|---|
-| `QuantumDharmaManager.cs` | None | Central orchestrator: state machine, adaptive decision tick, slot registration, named constants |
+| `QuantumDharmaManager.cs` | None | Central orchestrator: 8-state machine (Silence/Observe/Approach/Retreat/Wander/Meditate/Greet/Play), adaptive decision tick, slot registration |
 | `FreeEnergyCalculator.cs` | None | 5-channel PE: F = Σ(πᵢ_eff · PEᵢ²) - C with trust-modulated precision, slot eviction on overflow |
 | `BeliefState.cs` | None | Bayesian intent inference (4 intents × 9 features), log-sum-exp stabilization, slot eviction |
 | `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 200-word tiered vocabulary, speech FIFO queue, breathing, particles |
@@ -178,8 +189,11 @@ QuantumDharmaNPC ──IsSpeaking──→ FacialExpressionController (lip sync 
 | `FarewellBehavior.cs` | None | Trust-based farewell (glance/wave/emotional/friend), 24 bilingual utterances |
 | `PersonalityPreset.cs` | None | Archetype data container: 46 tunable params, 5 built-in archetypes |
 | `PersonalityInstaller.cs` | None | Reads preset, applies to 10 components via SetProgramVariable, avatar switching |
+| `AutonomousGoals.cs` | None | Internal needs system (solitude/social/curiosity/rest), goal pressure biases state selection |
+| `EnvironmentAwareness.cs` | None | Time-of-day (sun angle → 4 periods), obstacle raycasting, ground/cliff detection |
+| `ImitationLearning.cs` | None | Observes player approach speed/distance/duration, EMA learning, personality-blended output |
 
-#### Action Layer (8)
+#### Action Layer (9)
 
 | Script | Sync Mode | Role |
 |---|---|---|
@@ -191,6 +205,7 @@ QuantumDharmaNPC ──IsSpeaking──→ FacialExpressionController (lip sync 
 | `ProximityAudio.cs` | None | Emotion-driven spatial audio (volume/pitch per emotion) |
 | `IdleWaypoints.cs` | None | Sequential waypoint patrol during Silence with no players |
 | `FacialExpressionController.cs` | None | Emotion → BlendShape facial expressions, pseudo lip sync during speech |
+| `UpperBodyIK.cs` | None | LateUpdate bone overlay: spine lean (interest/defense), hand reach (trust), breathing |
 
 #### UI Layer (3)
 
@@ -206,7 +221,7 @@ QuantumDharmaNPC ──IsSpeaking──→ FacialExpressionController (lip sync 
 Assets/
 ├── QuantumDharma/
 │   ├── Scripts/
-│   │   ├── Core/                     # 27 scripts
+│   │   ├── Core/                     # 29 scripts
 │   │   │   ├── QuantumDharmaManager.cs
 │   │   │   ├── FreeEnergyCalculator.cs
 │   │   │   ├── BeliefState.cs
@@ -233,7 +248,10 @@ Assets/
 │   │   │   ├── CompanionMemory.cs
 │   │   │   ├── FarewellBehavior.cs
 │   │   │   ├── PersonalityPreset.cs
-│   │   │   └── PersonalityInstaller.cs
+│   │   │   ├── PersonalityInstaller.cs
+│   │   │   ├── AutonomousGoals.cs
+│   │   │   ├── EnvironmentAwareness.cs
+│   │   │   └── ImitationLearning.cs
 │   │   ├── Perception/               # 7 scripts
 │   │   │   ├── PlayerSensor.cs
 │   │   │   ├── MarkovBlanket.cs
@@ -242,7 +260,7 @@ Assets/
 │   │   │   ├── TouchSensor.cs
 │   │   │   ├── GiftReceiver.cs
 │   │   │   └── VoiceDetector.cs
-│   │   ├── Action/                   # 8 scripts
+│   │   ├── Action/                   # 9 scripts
 │   │   │   ├── NPCMotor.cs
 │   │   │   ├── LookAtController.cs
 │   │   │   ├── EmotionAnimator.cs
@@ -250,7 +268,8 @@ Assets/
 │   │   │   ├── GestureController.cs
 │   │   │   ├── ProximityAudio.cs
 │   │   │   ├── IdleWaypoints.cs
-│   │   │   └── FacialExpressionController.cs
+│   │   │   ├── FacialExpressionController.cs
+│   │   │   └── UpperBodyIK.cs
 │   │   └── UI/                       # 3 scripts
 │   │       ├── DebugOverlay.cs
 │   │       ├── FreeEnergyVisualizer.cs

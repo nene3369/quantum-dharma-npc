@@ -262,6 +262,30 @@ public class EmotionAnimator : UdonSharpBehaviour
                     _targetWarm = Mathf.Max(_targetWarm, 0.5f);
                 }
                 break;
+
+            case QuantumDharmaManager.NPC_STATE_MEDITATE:
+                // Deep calm during meditation
+                _targetCalm = Mathf.Max(_targetCalm, 0.8f);
+                _targetCurious = 0f;
+                _targetWary = 0f;
+                break;
+
+            case QuantumDharmaManager.NPC_STATE_GREET:
+                // Warm and happy when greeting a friend
+                _targetWarm = Mathf.Max(_targetWarm, 0.7f);
+                _targetCalm = Mathf.Max(_targetCalm, 0.3f);
+                break;
+
+            case QuantumDharmaManager.NPC_STATE_PLAY:
+                // Curious and warm during play
+                _targetCurious = Mathf.Max(_targetCurious, 0.6f);
+                _targetWarm = Mathf.Max(_targetWarm, 0.4f);
+                break;
+
+            case QuantumDharmaManager.NPC_STATE_WANDER:
+                // Slightly curious while wandering
+                _targetCurious = Mathf.Max(_targetCurious, 0.2f);
+                break;
         }
 
         // Normalize so total doesn't exceed meaningful range
