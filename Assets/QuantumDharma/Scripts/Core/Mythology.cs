@@ -282,6 +282,7 @@ public class Mythology : UdonSharpBehaviour
         }
 
         _legendTale[slot] = _talePool[taleIdx];
+        _legendLastSeenTime[slot] = Time.time;
 
         if (_legendCount < MAX_LEGENDS)
         {

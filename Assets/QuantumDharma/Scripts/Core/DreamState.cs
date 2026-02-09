@@ -211,7 +211,7 @@ public class DreamState : UdonSharpBehaviour
         _phaseTimer += Time.deltaTime;
 
         // Fade out dream particles
-        float fade = 1f - Mathf.Clamp01(_phaseTimer / _wakeDuration);
+        float fade = 1f - Mathf.Clamp01(_phaseTimer / Mathf.Max(_wakeDuration, 0.01f));
         SetDreamParticleIntensity(fade);
 
         if (_phaseTimer >= _wakeDuration)

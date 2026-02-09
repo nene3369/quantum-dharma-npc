@@ -203,10 +203,8 @@ public class MultiNPCRelay : UdonSharpBehaviour
     /// </summary>
     private int GetSlotPlayerId(int slot)
     {
-        // BeliefState stores player IDs internally but doesn't expose them.
-        // We use FreeEnergyCalculator if available, or return -1.
-        // The Manager should call BroadcastReputation directly when it has the ID.
-        return -1;
+        if (_beliefState == null) return -1;
+        return _beliefState.GetSlotPlayerId(slot);
     }
 
     // ================================================================

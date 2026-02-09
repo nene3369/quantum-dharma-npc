@@ -68,6 +68,9 @@ public class FreeEnergyVisualizer : UdonSharpBehaviour
 
     private void Start()
     {
+        // Ensure segment count is at least 1 to prevent division by zero and empty arrays
+        if (_segmentCount < 1) _segmentCount = 32;
+
         // Pre-allocate ring position array (+1 to close the loop)
         _ringPositions = new Vector3[_segmentCount + 1];
 

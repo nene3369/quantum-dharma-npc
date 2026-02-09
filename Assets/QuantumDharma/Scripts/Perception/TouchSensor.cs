@@ -311,6 +311,13 @@ public class TouchSensor : UdonSharpBehaviour
 
     private void UpdateProlongedContact()
     {
+        // Accumulate trust deltas from all simultaneous prolonged touchers
+        // (previously overwrote per toucher, losing all but the last)
+        float accumulatedDelta = 0f;
+        int lastPlayerId = -1;
+        int lastZone = -1;
+        bool anyProlonged = false;
+
         for (int i = 0; i < MAX_TOUCHERS; i++)
         {
             if (!_toucherActive[i]) continue;
@@ -328,10 +335,17 @@ public class TouchSensor : UdonSharpBehaviour
                 _touchSignal = Mathf.Min(1f, _touchSignal + 0.5f * Time.deltaTime);
             }
 
-            // Continuously emit trust deltas as pending events
-            _lastTouchTrustDelta = prolongedDelta;
-            _lastTouchPlayerId = _toucherPlayerIds[i];
-            _lastTouchZone = _toucherZone[i];
+            accumulatedDelta += prolongedDelta;
+            lastPlayerId = _toucherPlayerIds[i];
+            lastZone = _toucherZone[i];
+            anyProlonged = true;
+        }
+
+        if (anyProlonged)
+        {
+            _lastTouchTrustDelta = accumulatedDelta;
+            _lastTouchPlayerId = lastPlayerId;
+            _lastTouchZone = lastZone;
             _hasPendingTouch = true;
         }
     }

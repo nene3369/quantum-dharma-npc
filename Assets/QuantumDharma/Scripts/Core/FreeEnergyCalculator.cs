@@ -326,7 +326,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
     /// Compute trust-modulated effective precisions and free energy
     /// for all registered slots. Call once per decision tick.
     /// </summary>
-    public void ComputeAll(float trust)
+    public void ComputeAll(float trust, float tickInterval = 0.5f)
     {
         _currentTrust = trust;
 
@@ -389,7 +389,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         else
         {
             // Use tick interval (called from Manager's decision tick, not per-frame)
-            _peakFreeEnergy = Mathf.Max(0f, _peakFreeEnergy - _peakDecayRate * 0.5f);
+            _peakFreeEnergy = Mathf.Max(0f, _peakFreeEnergy - _peakDecayRate * tickInterval);
         }
     }
 

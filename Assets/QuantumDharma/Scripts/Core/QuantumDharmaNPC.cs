@@ -226,7 +226,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
 
         // Try to speak
         _utteranceTimer += _manager != null
-            ? 0.5f  // approximate decision interval
+            ? _manager.GetEffectiveInterval()
             : Time.deltaTime;
         TrySpeak(targetEmotion, trust);
 

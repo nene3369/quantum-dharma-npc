@@ -152,7 +152,7 @@ public class VoiceDetector : UdonSharpBehaviour
 
             // Stillness factor: lower speed = higher engagement
             float speed = vel.magnitude;
-            float stillFactor = 1f - Mathf.Clamp01(speed / _stillnessThreshold);
+            float stillFactor = 1f - Mathf.Clamp01(speed / Mathf.Max(_stillnessThreshold, 0.01f));
 
             // Combined engagement score
             // All three must be present for high signal
