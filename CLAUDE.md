@@ -69,7 +69,7 @@
                       │          │          │
                ┌──────▼──┐  ┌───▼──────┐  ┌▼────────────┐
                │ Action  │  │ Boundary │  │  UI Layer   │
-               │ (7)     │  │          │  │  (3)        │
+               │ (8)     │  │          │  │  (3)        │
                │         │  │ Markov   │  │             │
                │ NPCMotor│  │ Blanket  │  │ DebugOverlay│
                │ LookAt  │  │          │  │ FreeEnergy  │
@@ -80,6 +80,7 @@
                │  Audio  │  │          │  │             │
                │ Idle    │  │          │  │             │
                │ Waypts  │  │          │  │             │
+               │ Facial  │  │          │  │             │
                └─────────┘  └──────────┘  └─────────────┘
 ```
 
@@ -128,9 +129,11 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 PersonalityPreset ──params──→ PersonalityInstaller (archetype configuration)
 PersonalityInstaller ──SetProgramVariable──→ 10 components (runtime param override)
 PersonalityInstaller ──avatar switch──→ GameObject[] (enable/disable models)
+EmotionAnimator ──emotion weights──→ FacialExpressionController (blend shapes)
+QuantumDharmaNPC ──IsSpeaking──→ FacialExpressionController (lip sync trigger)
 ```
 
-### Component Inventory (44 scripts)
+### Component Inventory (45 scripts)
 
 #### Perception Layer (7)
 
@@ -151,7 +154,7 @@ PersonalityInstaller ──avatar switch──→ GameObject[] (enable/disable m
 | `QuantumDharmaManager.cs` | None | Central orchestrator: state machine, adaptive decision tick, slot registration, named constants |
 | `FreeEnergyCalculator.cs` | None | 5-channel PE: F = Σ(πᵢ_eff · PEᵢ²) - C with trust-modulated precision, slot eviction on overflow |
 | `BeliefState.cs` | None | Bayesian intent inference (4 intents × 9 features), log-sum-exp stabilization, slot eviction |
-| `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 64-word tiered vocabulary, speech FIFO queue, breathing, particles |
+| `QuantumDharmaNPC.cs` | Continuous | Personality: 5 emotions, 200-word tiered vocabulary, speech FIFO queue, breathing, particles |
 | `SpeechOrchestrator.cs` | None | Delegates speech from Manager: stories, legends, norm commentary, companion signals, trust adjustments |
 | `SessionMemory.cs` | Manual | Persistent player relationships (trust, kindness, friend, emotional memory) |
 | `DreamState.cs` | None | Offline model consolidation during zero-player periods |
@@ -176,7 +179,7 @@ PersonalityInstaller ──avatar switch──→ GameObject[] (enable/disable m
 | `PersonalityPreset.cs` | None | Archetype data container: 46 tunable params, 5 built-in archetypes |
 | `PersonalityInstaller.cs` | None | Reads preset, applies to 10 components via SetProgramVariable, avatar switching |
 
-#### Action Layer (7)
+#### Action Layer (8)
 
 | Script | Sync Mode | Role |
 |---|---|---|
@@ -187,6 +190,7 @@ PersonalityInstaller ──avatar switch──→ GameObject[] (enable/disable m
 | `GestureController.cs` | None | Contextual gestures: wave, bow, head tilt, nod, beckon, flinch |
 | `ProximityAudio.cs` | None | Emotion-driven spatial audio (volume/pitch per emotion) |
 | `IdleWaypoints.cs` | None | Sequential waypoint patrol during Silence with no players |
+| `FacialExpressionController.cs` | None | Emotion → BlendShape facial expressions, pseudo lip sync during speech |
 
 #### UI Layer (3)
 
@@ -238,14 +242,15 @@ Assets/
 │   │   │   ├── TouchSensor.cs
 │   │   │   ├── GiftReceiver.cs
 │   │   │   └── VoiceDetector.cs
-│   │   ├── Action/                   # 7 scripts
+│   │   ├── Action/                   # 8 scripts
 │   │   │   ├── NPCMotor.cs
 │   │   │   ├── LookAtController.cs
 │   │   │   ├── EmotionAnimator.cs
 │   │   │   ├── MirrorBehavior.cs
 │   │   │   ├── GestureController.cs
 │   │   │   ├── ProximityAudio.cs
-│   │   │   └── IdleWaypoints.cs
+│   │   │   ├── IdleWaypoints.cs
+│   │   │   └── FacialExpressionController.cs
 │   │   └── UI/                       # 3 scripts
 │   │       ├── DebugOverlay.cs
 │   │       ├── FreeEnergyVisualizer.cs

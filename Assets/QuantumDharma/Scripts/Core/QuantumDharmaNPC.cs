@@ -533,108 +533,258 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
 
     private void InitializeVocabulary()
     {
-        // Vocabulary evolution: 64 words across 5 emotions.
+        // Vocabulary evolution: 200 words across 5 emotions.
         // Higher trust unlocks longer, more personal phrases.
-        // Tier 0 (trust 0.0): minimal, instinctive reactions
+        // Tier 0 (trust 0.0):  minimal, instinctive reactions
         // Tier 1 (trust 0.1-0.3): basic social words
         // Tier 2 (trust 0.4-0.6): warm, personal phrases
         // Tier 3 (trust 0.7-0.9): intimate, deep expressions
-        _utteranceCount = 64;
+        _utteranceCount = 200;
         _utteranceTexts = new string[_utteranceCount];
         _utteranceEmotions = new int[_utteranceCount];
         _utteranceTrustMin = new float[_utteranceCount];
 
         int i = 0;
 
-        // --- CALM (emotion 0): 12 words ---
+        // =============================================================
+        // CALM (emotion 0): 40 words
+        // =============================================================
+        // Tier 0 — instinctive
+        SetUtterance(i++, "...",                  EMOTION_CALM, 0f);
+        SetUtterance(i++, "ふぅ...",               EMOTION_CALM, 0f);
+        SetUtterance(i++, "静か...",               EMOTION_CALM, 0f);
+        SetUtterance(i++, "Quiet...",             EMOTION_CALM, 0f);
+        SetUtterance(i++, "すぅ...はぁ...",        EMOTION_CALM, 0f);
+        SetUtterance(i++, "Mmm...",               EMOTION_CALM, 0f);
+        // Tier 1 — basic
+        SetUtterance(i++, "穏やか...",             EMOTION_CALM, 0.15f);
+        SetUtterance(i++, "Peaceful...",          EMOTION_CALM, 0.15f);
+        SetUtterance(i++, "ここにいる",            EMOTION_CALM, 0.2f);
+        SetUtterance(i++, "I am here.",           EMOTION_CALM, 0.2f);
+        SetUtterance(i++, "風...",                EMOTION_CALM, 0.15f);
+        SetUtterance(i++, "The wind...",          EMOTION_CALM, 0.15f);
+        SetUtterance(i++, "いい天気",              EMOTION_CALM, 0.2f);
+        SetUtterance(i++, "Nice day...",          EMOTION_CALM, 0.2f);
+        SetUtterance(i++, "光...",                EMOTION_CALM, 0.25f);
+        SetUtterance(i++, "Light...",             EMOTION_CALM, 0.25f);
+        SetUtterance(i++, "落ち着く...",           EMOTION_CALM, 0.3f);
+        SetUtterance(i++, "Calm...",              EMOTION_CALM, 0.3f);
+        // Tier 2 — warm personal
+        SetUtterance(i++, "安心する...",           EMOTION_CALM, 0.4f);
+        SetUtterance(i++, "I feel safe...",       EMOTION_CALM, 0.4f);
+        SetUtterance(i++, "ここが好き",            EMOTION_CALM, 0.45f);
+        SetUtterance(i++, "I like it here",       EMOTION_CALM, 0.45f);
+        SetUtterance(i++, "ゆっくりでいいよ",       EMOTION_CALM, 0.4f);
+        SetUtterance(i++, "Take your time",       EMOTION_CALM, 0.4f);
+        SetUtterance(i++, "急がなくていい",         EMOTION_CALM, 0.45f);
+        SetUtterance(i++, "No rush...",           EMOTION_CALM, 0.45f);
+        SetUtterance(i++, "何もしなくていい",       EMOTION_CALM, 0.5f);
+        SetUtterance(i++, "Just being is enough", EMOTION_CALM, 0.5f);
+        SetUtterance(i++, "今がいい",              EMOTION_CALM, 0.5f);
+        SetUtterance(i++, "This moment is good",  EMOTION_CALM, 0.5f);
+        SetUtterance(i++, "息を合わせよう",         EMOTION_CALM, 0.55f);
+        SetUtterance(i++, "Let's breathe together", EMOTION_CALM, 0.55f);
+        // Tier 3 — intimate
+        SetUtterance(i++, "この時間が好き",        EMOTION_CALM, 0.65f);
+        SetUtterance(i++, "I love this moment",   EMOTION_CALM, 0.65f);
+        SetUtterance(i++, "隣にいてくれて...",      EMOTION_CALM, 0.7f);
+        SetUtterance(i++, "Thank you for staying", EMOTION_CALM, 0.7f);
+        SetUtterance(i++, "こうしていたい",         EMOTION_CALM, 0.75f);
+        SetUtterance(i++, "I wish this would last", EMOTION_CALM, 0.75f);
+        SetUtterance(i++, "心が凪いでる",           EMOTION_CALM, 0.8f);
+        SetUtterance(i++, "My heart is still",    EMOTION_CALM, 0.8f);
+
+        // =============================================================
+        // CURIOUS (emotion 1): 40 words
+        // =============================================================
         // Tier 0
-        SetUtterance(i++, "...",              EMOTION_CALM, 0f);
-        SetUtterance(i++, "ふぅ...",           EMOTION_CALM, 0f);
-        SetUtterance(i++, "静か...",           EMOTION_CALM, 0f);
-        SetUtterance(i++, "Quiet...",         EMOTION_CALM, 0f);
+        SetUtterance(i++, "ん?",                  EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "誰?",                 EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "あれ?",                EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "Hm?",                 EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "おや...",               EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "Oh?",                  EMOTION_CURIOUS, 0f);
         // Tier 1
-        SetUtterance(i++, "穏やか...",         EMOTION_CALM, 0.2f);
-        SetUtterance(i++, "Peaceful...",      EMOTION_CALM, 0.2f);
-        SetUtterance(i++, "ここにいる",        EMOTION_CALM, 0.3f);
-        SetUtterance(i++, "I am here.",       EMOTION_CALM, 0.3f);
+        SetUtterance(i++, "あの...",               EMOTION_CURIOUS, 0.1f);
+        SetUtterance(i++, "Hmm...",               EMOTION_CURIOUS, 0.1f);
+        SetUtterance(i++, "なるほど...",            EMOTION_CURIOUS, 0.15f);
+        SetUtterance(i++, "I see...",             EMOTION_CURIOUS, 0.15f);
+        SetUtterance(i++, "面白い...",             EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "Interesting...",       EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "初めて見た...",          EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "First time seeing...", EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "何してるの?",           EMOTION_CURIOUS, 0.25f);
+        SetUtterance(i++, "What are you doing?",  EMOTION_CURIOUS, 0.25f);
+        SetUtterance(i++, "珍しい...",             EMOTION_CURIOUS, 0.25f);
+        SetUtterance(i++, "How rare...",          EMOTION_CURIOUS, 0.25f);
+        SetUtterance(i++, "見せて?",              EMOTION_CURIOUS, 0.3f);
+        SetUtterance(i++, "Show me?",             EMOTION_CURIOUS, 0.3f);
         // Tier 2
-        SetUtterance(i++, "安心する...",       EMOTION_CALM, 0.5f);
-        SetUtterance(i++, "I feel safe...",   EMOTION_CALM, 0.5f);
+        SetUtterance(i++, "教えて?",              EMOTION_CURIOUS, 0.35f);
+        SetUtterance(i++, "Tell me?",             EMOTION_CURIOUS, 0.35f);
+        SetUtterance(i++, "知りたい...",           EMOTION_CURIOUS, 0.4f);
+        SetUtterance(i++, "I want to know...",    EMOTION_CURIOUS, 0.4f);
+        SetUtterance(i++, "どこから来たの?",       EMOTION_CURIOUS, 0.4f);
+        SetUtterance(i++, "Where are you from?",  EMOTION_CURIOUS, 0.4f);
+        SetUtterance(i++, "なぜ?",                EMOTION_CURIOUS, 0.45f);
+        SetUtterance(i++, "Why?",                 EMOTION_CURIOUS, 0.45f);
+        SetUtterance(i++, "もっと見たい...",        EMOTION_CURIOUS, 0.5f);
+        SetUtterance(i++, "I want to see more...", EMOTION_CURIOUS, 0.5f);
+        SetUtterance(i++, "不思議...",             EMOTION_CURIOUS, 0.5f);
+        SetUtterance(i++, "How mysterious...",    EMOTION_CURIOUS, 0.5f);
         // Tier 3
-        SetUtterance(i++, "この時間が好き",    EMOTION_CALM, 0.7f);
-        SetUtterance(i++, "I love this moment", EMOTION_CALM, 0.7f);
+        SetUtterance(i++, "あなたのこと...",        EMOTION_CURIOUS, 0.6f);
+        SetUtterance(i++, "About you...",         EMOTION_CURIOUS, 0.6f);
+        SetUtterance(i++, "何を考えてるの?",       EMOTION_CURIOUS, 0.65f);
+        SetUtterance(i++, "What are you thinking?", EMOTION_CURIOUS, 0.65f);
+        SetUtterance(i++, "その目は何を見てる?",    EMOTION_CURIOUS, 0.7f);
+        SetUtterance(i++, "What do your eyes see?", EMOTION_CURIOUS, 0.7f);
+        SetUtterance(i++, "心の中、覗いていい?",    EMOTION_CURIOUS, 0.8f);
+        SetUtterance(i++, "May I peek inside?",   EMOTION_CURIOUS, 0.8f);
 
-        // --- CURIOUS (emotion 1): 14 words ---
+        // =============================================================
+        // WARM (emotion 2): 44 words
+        // =============================================================
+        // Tier 1
+        SetUtterance(i++, "やあ",                 EMOTION_WARM, 0.1f);
+        SetUtterance(i++, "Hi",                  EMOTION_WARM, 0.1f);
+        SetUtterance(i++, "こんにちは",            EMOTION_WARM, 0.15f);
+        SetUtterance(i++, "Hello",               EMOTION_WARM, 0.15f);
+        SetUtterance(i++, "ようこそ",             EMOTION_WARM, 0.2f);
+        SetUtterance(i++, "Welcome",             EMOTION_WARM, 0.2f);
+        SetUtterance(i++, "おかえり",             EMOTION_WARM, 0.25f);
+        SetUtterance(i++, "Welcome back",        EMOTION_WARM, 0.25f);
+        SetUtterance(i++, "待ってたよ",           EMOTION_WARM, 0.3f);
+        SetUtterance(i++, "I was waiting",       EMOTION_WARM, 0.3f);
+        SetUtterance(i++, "会えた...",            EMOTION_WARM, 0.3f);
+        SetUtterance(i++, "We meet...",          EMOTION_WARM, 0.3f);
+        // Tier 2
+        SetUtterance(i++, "来てくれた",            EMOTION_WARM, 0.35f);
+        SetUtterance(i++, "You came",             EMOTION_WARM, 0.35f);
+        SetUtterance(i++, "あたたかい...",         EMOTION_WARM, 0.4f);
+        SetUtterance(i++, "Warm...",              EMOTION_WARM, 0.4f);
+        SetUtterance(i++, "嬉しい...",            EMOTION_WARM, 0.4f);
+        SetUtterance(i++, "Happy...",             EMOTION_WARM, 0.4f);
+        SetUtterance(i++, "近くにいて",            EMOTION_WARM, 0.45f);
+        SetUtterance(i++, "Stay close",           EMOTION_WARM, 0.45f);
+        SetUtterance(i++, "いい子...",            EMOTION_WARM, 0.45f);
+        SetUtterance(i++, "Good soul...",         EMOTION_WARM, 0.45f);
+        SetUtterance(i++, "笑って",               EMOTION_WARM, 0.5f);
+        SetUtterance(i++, "Smile...",             EMOTION_WARM, 0.5f);
+        SetUtterance(i++, "ほっとする",            EMOTION_WARM, 0.5f);
+        SetUtterance(i++, "What a relief...",     EMOTION_WARM, 0.5f);
+        SetUtterance(i++, "心がぽかぽか",          EMOTION_WARM, 0.55f);
+        SetUtterance(i++, "My heart is warm",     EMOTION_WARM, 0.55f);
+        SetUtterance(i++, "そばにいてね",          EMOTION_WARM, 0.55f);
+        SetUtterance(i++, "Please stay near",     EMOTION_WARM, 0.55f);
+        // Tier 3
+        SetUtterance(i++, "一緒がいい",           EMOTION_WARM, 0.6f);
+        SetUtterance(i++, "Together is better",   EMOTION_WARM, 0.6f);
+        SetUtterance(i++, "帰らないで",            EMOTION_WARM, 0.65f);
+        SetUtterance(i++, "Don't leave...",       EMOTION_WARM, 0.65f);
+        SetUtterance(i++, "あなたがいると安心",     EMOTION_WARM, 0.7f);
+        SetUtterance(i++, "I feel safe with you", EMOTION_WARM, 0.7f);
+        SetUtterance(i++, "世界が明るい",          EMOTION_WARM, 0.7f);
+        SetUtterance(i++, "The world is bright",  EMOTION_WARM, 0.7f);
+        SetUtterance(i++, "あなたは太陽みたい",     EMOTION_WARM, 0.8f);
+        SetUtterance(i++, "You are like the sun", EMOTION_WARM, 0.8f);
+        SetUtterance(i++, "この絆を大切に",         EMOTION_WARM, 0.85f);
+        SetUtterance(i++, "I cherish this bond",  EMOTION_WARM, 0.85f);
+        SetUtterance(i++, "離れても思い出す",       EMOTION_WARM, 0.9f);
+        SetUtterance(i++, "I'll think of you",    EMOTION_WARM, 0.9f);
+
+        // =============================================================
+        // ANXIOUS (emotion 3): 36 words
+        // =============================================================
         // Tier 0
-        SetUtterance(i++, "ん?",              EMOTION_CURIOUS, 0f);
-        SetUtterance(i++, "誰?",             EMOTION_CURIOUS, 0f);
+        SetUtterance(i++, "あっ...",              EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "えっ...",              EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Oh...",               EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "こわい...",            EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Scared...",           EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "近い...",              EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Too close...",        EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "うっ...",              EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "びくっ...",            EMOTION_ANXIOUS, 0f);
+        SetUtterance(i++, "Ah...",               EMOTION_ANXIOUS, 0f);
         // Tier 1
-        SetUtterance(i++, "あの...",           EMOTION_CURIOUS, 0.1f);
-        SetUtterance(i++, "Hmm...",           EMOTION_CURIOUS, 0.1f);
-        SetUtterance(i++, "なるほど...",        EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "I see...",         EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "面白い...",         EMOTION_CURIOUS, 0.2f);
-        SetUtterance(i++, "Interesting...",   EMOTION_CURIOUS, 0.2f);
+        SetUtterance(i++, "待って...",            EMOTION_ANXIOUS, 0.1f);
+        SetUtterance(i++, "Wait...",             EMOTION_ANXIOUS, 0.1f);
+        SetUtterance(i++, "そっとして...",         EMOTION_ANXIOUS, 0.1f);
+        SetUtterance(i++, "Be gentle...",        EMOTION_ANXIOUS, 0.1f);
+        SetUtterance(i++, "急がないで...",         EMOTION_ANXIOUS, 0.15f);
+        SetUtterance(i++, "Don't rush...",       EMOTION_ANXIOUS, 0.15f);
+        SetUtterance(i++, "見ないで...",           EMOTION_ANXIOUS, 0.15f);
+        SetUtterance(i++, "Don't look...",       EMOTION_ANXIOUS, 0.15f);
+        SetUtterance(i++, "少し離れて...",         EMOTION_ANXIOUS, 0.2f);
+        SetUtterance(i++, "A little space...",   EMOTION_ANXIOUS, 0.2f);
+        SetUtterance(i++, "どうしよう...",         EMOTION_ANXIOUS, 0.2f);
+        SetUtterance(i++, "What do I do...",     EMOTION_ANXIOUS, 0.2f);
         // Tier 2
-        SetUtterance(i++, "教えて?",          EMOTION_CURIOUS, 0.35f);
-        SetUtterance(i++, "Tell me?",         EMOTION_CURIOUS, 0.35f);
-        SetUtterance(i++, "知りたい...",       EMOTION_CURIOUS, 0.4f);
-        SetUtterance(i++, "I want to know...", EMOTION_CURIOUS, 0.4f);
+        SetUtterance(i++, "大丈夫?",             EMOTION_ANXIOUS, 0.3f);
+        SetUtterance(i++, "Are you okay?",       EMOTION_ANXIOUS, 0.3f);
+        SetUtterance(i++, "怖くない?",            EMOTION_ANXIOUS, 0.35f);
+        SetUtterance(i++, "Not scared?",         EMOTION_ANXIOUS, 0.35f);
+        SetUtterance(i++, "傷つけたくない",        EMOTION_ANXIOUS, 0.4f);
+        SetUtterance(i++, "I don't want to hurt", EMOTION_ANXIOUS, 0.4f);
         // Tier 3
-        SetUtterance(i++, "あなたのこと...",    EMOTION_CURIOUS, 0.6f);
-        SetUtterance(i++, "About you...",     EMOTION_CURIOUS, 0.6f);
+        SetUtterance(i++, "でも...信じたい",       EMOTION_ANXIOUS, 0.55f);
+        SetUtterance(i++, "But...I want to trust", EMOTION_ANXIOUS, 0.55f);
+        SetUtterance(i++, "勇気を出すから",        EMOTION_ANXIOUS, 0.6f);
+        SetUtterance(i++, "I'll be brave...",    EMOTION_ANXIOUS, 0.6f);
+        SetUtterance(i++, "怖いけど、ここにいる",   EMOTION_ANXIOUS, 0.7f);
+        SetUtterance(i++, "Scared, but I'm here", EMOTION_ANXIOUS, 0.7f);
+        SetUtterance(i++, "守ってくれる?",         EMOTION_ANXIOUS, 0.8f);
+        SetUtterance(i++, "Will you protect me?", EMOTION_ANXIOUS, 0.8f);
 
-        // --- WARM (emotion 2): 14 words ---
-        // Tier 1
-        SetUtterance(i++, "やあ",             EMOTION_WARM, 0.15f);
-        SetUtterance(i++, "Hi",              EMOTION_WARM, 0.15f);
-        SetUtterance(i++, "こんにちは",        EMOTION_WARM, 0.2f);
-        SetUtterance(i++, "Hello",           EMOTION_WARM, 0.2f);
-        SetUtterance(i++, "ようこそ",         EMOTION_WARM, 0.3f);
-        SetUtterance(i++, "Welcome",         EMOTION_WARM, 0.3f);
+        // =============================================================
+        // GRATEFUL (emotion 4): 40 words
+        // =============================================================
         // Tier 2
-        SetUtterance(i++, "来てくれた",        EMOTION_WARM, 0.35f);
-        SetUtterance(i++, "You came",         EMOTION_WARM, 0.35f);
-        SetUtterance(i++, "あたたかい...",     EMOTION_WARM, 0.4f);
-        SetUtterance(i++, "Warm...",          EMOTION_WARM, 0.4f);
-        SetUtterance(i++, "嬉しい...",        EMOTION_WARM, 0.45f);
-        SetUtterance(i++, "Happy...",         EMOTION_WARM, 0.45f);
+        SetUtterance(i++, "ありがとう",           EMOTION_GRATEFUL, 0.4f);
+        SetUtterance(i++, "Thank you",           EMOTION_GRATEFUL, 0.4f);
+        SetUtterance(i++, "優しい...",            EMOTION_GRATEFUL, 0.4f);
+        SetUtterance(i++, "Kind...",             EMOTION_GRATEFUL, 0.4f);
+        SetUtterance(i++, "嬉しいな...",          EMOTION_GRATEFUL, 0.45f);
+        SetUtterance(i++, "So happy...",         EMOTION_GRATEFUL, 0.45f);
+        SetUtterance(i++, "助かった...",          EMOTION_GRATEFUL, 0.45f);
+        SetUtterance(i++, "That helped...",      EMOTION_GRATEFUL, 0.45f);
+        SetUtterance(i++, "ありがとう、本当に",    EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "Truly, thank you",    EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "ともだち",             EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "Friend",              EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "その気持ち、嬉しい",    EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "That feeling...happy", EMOTION_GRATEFUL, 0.5f);
+        SetUtterance(i++, "もらっていいの?",       EMOTION_GRATEFUL, 0.55f);
+        SetUtterance(i++, "May I keep this?",    EMOTION_GRATEFUL, 0.55f);
         // Tier 3
-        SetUtterance(i++, "一緒がいい",       EMOTION_WARM, 0.65f);
-        SetUtterance(i++, "Together is better", EMOTION_WARM, 0.65f);
-
-        // --- ANXIOUS (emotion 3): 12 words ---
-        // Tier 0
-        SetUtterance(i++, "あっ...",          EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "えっ...",          EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "Oh...",           EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "こわい...",        EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "Scared...",       EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "近い...",          EMOTION_ANXIOUS, 0f);
-        SetUtterance(i++, "Too close...",    EMOTION_ANXIOUS, 0f);
-        // Tier 1
-        SetUtterance(i++, "待って...",        EMOTION_ANXIOUS, 0.1f);
-        SetUtterance(i++, "Wait...",         EMOTION_ANXIOUS, 0.1f);
-        SetUtterance(i++, "そっとして...",     EMOTION_ANXIOUS, 0.15f);
-        SetUtterance(i++, "Be gentle...",    EMOTION_ANXIOUS, 0.15f);
-        // Tier 2
-        SetUtterance(i++, "大丈夫?",         EMOTION_ANXIOUS, 0.25f);
-
-        // --- GRATEFUL (emotion 4): 12 words ---
-        // Tier 2
-        SetUtterance(i++, "ありがとう",       EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "Thank you",       EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "優しい...",        EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "Kind...",         EMOTION_GRATEFUL, 0.5f);
-        SetUtterance(i++, "ともだち",         EMOTION_GRATEFUL, 0.6f);
-        SetUtterance(i++, "Friend",          EMOTION_GRATEFUL, 0.6f);
-        // Tier 3
-        SetUtterance(i++, "宝物",            EMOTION_GRATEFUL, 0.7f);
-        SetUtterance(i++, "Treasure",        EMOTION_GRATEFUL, 0.7f);
-        SetUtterance(i++, "大切",            EMOTION_GRATEFUL, 0.8f);
-        SetUtterance(i++, "好き",            EMOTION_GRATEFUL, 0.8f);
-        SetUtterance(i++, "ずっと覚えてる",    EMOTION_GRATEFUL, 0.85f);
+        SetUtterance(i++, "宝物",                EMOTION_GRATEFUL, 0.6f);
+        SetUtterance(i++, "Treasure",            EMOTION_GRATEFUL, 0.6f);
+        SetUtterance(i++, "忘れないよ",           EMOTION_GRATEFUL, 0.6f);
+        SetUtterance(i++, "I won't forget",      EMOTION_GRATEFUL, 0.6f);
+        SetUtterance(i++, "恩返ししたい",          EMOTION_GRATEFUL, 0.65f);
+        SetUtterance(i++, "I want to repay you", EMOTION_GRATEFUL, 0.65f);
+        SetUtterance(i++, "出会えてよかった",       EMOTION_GRATEFUL, 0.65f);
+        SetUtterance(i++, "Glad we met",         EMOTION_GRATEFUL, 0.65f);
+        SetUtterance(i++, "あなたは特別",          EMOTION_GRATEFUL, 0.7f);
+        SetUtterance(i++, "You are special",     EMOTION_GRATEFUL, 0.7f);
+        SetUtterance(i++, "大切",                EMOTION_GRATEFUL, 0.75f);
+        SetUtterance(i++, "Precious",            EMOTION_GRATEFUL, 0.75f);
+        SetUtterance(i++, "好き",                EMOTION_GRATEFUL, 0.8f);
+        SetUtterance(i++, "I like you",          EMOTION_GRATEFUL, 0.8f);
+        SetUtterance(i++, "ずっと覚えてる",        EMOTION_GRATEFUL, 0.85f);
         SetUtterance(i++, "I'll always remember", EMOTION_GRATEFUL, 0.85f);
+        SetUtterance(i++, "あなたに会えた奇跡",    EMOTION_GRATEFUL, 0.85f);
+        SetUtterance(i++, "A miracle, meeting you", EMOTION_GRATEFUL, 0.85f);
+        SetUtterance(i++, "永遠に感謝してる",       EMOTION_GRATEFUL, 0.9f);
+        SetUtterance(i++, "Forever grateful",    EMOTION_GRATEFUL, 0.9f);
+        SetUtterance(i++, "あなたは私の光",        EMOTION_GRATEFUL, 0.9f);
+        SetUtterance(i++, "You are my light",    EMOTION_GRATEFUL, 0.9f);
+        SetUtterance(i++, "生まれてきてくれてありがとう", EMOTION_GRATEFUL, 0.95f);
+        SetUtterance(i++, "Thank you for existing", EMOTION_GRATEFUL, 0.95f);
+
+        // Adjust count to actual entries (in case fewer than 200 were used)
+        _utteranceCount = i;
     }
 
     private void SetUtterance(int index, string text, int emotion, float trustMin)
@@ -789,6 +939,18 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
     {
         _peakEmotion = EMOTION_CALM;
         _peakEmotionIntensity = 0f;
+    }
+
+    /// <summary>True when an utterance is currently being displayed.</summary>
+    public bool IsSpeaking()
+    {
+        return _utteranceDisplayTimer > 0f;
+    }
+
+    /// <summary>Remaining display time for current utterance (0 if not speaking).</summary>
+    public float GetSpeechTimeRemaining()
+    {
+        return _utteranceDisplayTimer;
     }
 
     /// <summary>Total vocabulary size (for debug).</summary>
