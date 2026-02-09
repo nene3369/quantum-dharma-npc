@@ -706,6 +706,22 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                                                     trajectoryAngle, gazeDot, speed);
         }
 
+        // Feed attention-based precision multipliers per slot (FEP: attention IS precision)
+        if (_attentionSystem != null)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                VRCPlayerApi ap = _playerSensor.GetTrackedPlayer(i);
+                if (ap == null || !ap.IsValid()) continue;
+                int aSlot = _freeEnergyCalculator.FindSlot(ap.playerId);
+                if (aSlot >= 0)
+                {
+                    _freeEnergyCalculator.SetSlotPrecisionMultiplier(
+                        aSlot, _attentionSystem.GetPrecisionMultiplier(aSlot));
+                }
+            }
+        }
+
         // Compute with trust
         float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
         _freeEnergyCalculator.ComputeAll(trust, _effectiveInterval);
