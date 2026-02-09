@@ -36,7 +36,7 @@
                └──────────────────┬──────────────────┘
                                   │ observations
                ┌──────────────────▼──────────────────┐
-               │          Core Layer (25)              │
+               │          Core Layer (27)              │
                │                                      │
                │  QuantumDharmaManager (orchestrator)  │
                │  FreeEnergyCalculator (5-ch PE)       │
@@ -63,6 +63,8 @@
                │  Mythology (legend creation)          │
                │  CompanionMemory (co-presence)        │
                │  FarewellBehavior (goodbye rituals)   │
+               │  PersonalityPreset (archetype data)   │
+               │  PersonalityInstaller (preset apply)  │
                └──────┬──────────┬──────────┬────────┘
                       │          │          │
                ┌──────▼──┐  ┌───▼──────┐  ┌▼────────────┐
@@ -123,9 +125,12 @@ SpeechOrchestrator ──trust──→ BeliefState (ritual/legend/collective tr
 Manager ──stage toggles──→ All components (enable/disable evolution stages)
 SessionMemory ──emotion──→ Manager (peak emotion recall on re-encounter)
 NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TrySpeak)
+PersonalityPreset ──params──→ PersonalityInstaller (archetype configuration)
+PersonalityInstaller ──SetProgramVariable──→ 10 components (runtime param override)
+PersonalityInstaller ──avatar switch──→ GameObject[] (enable/disable models)
 ```
 
-### Component Inventory (42 scripts)
+### Component Inventory (44 scripts)
 
 #### Perception Layer (7)
 
@@ -139,7 +144,7 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 | `GiftReceiver.cs` | None | Detects dropped VRC_Pickup objects as gifts, habituation model |
 | `VoiceDetector.cs` | None | Behavioral engagement proxy (proximity + gaze + stillness) |
 
-#### Core Layer (25)
+#### Core Layer (27)
 
 | Script | Sync Mode | Role |
 |---|---|---|
@@ -168,6 +173,8 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 | `Mythology.cs` | None | Cross-NPC legend creation from collective memory |
 | `CompanionMemory.cs` | None | Co-presence tracking, companion pair detection, FIFO missing companion signal queue |
 | `FarewellBehavior.cs` | None | Trust-based farewell (glance/wave/emotional/friend), 24 bilingual utterances |
+| `PersonalityPreset.cs` | None | Archetype data container: 46 tunable params, 5 built-in archetypes |
+| `PersonalityInstaller.cs` | None | Reads preset, applies to 10 components via SetProgramVariable, avatar switching |
 
 #### Action Layer (7)
 
@@ -195,7 +202,7 @@ NameGiving ──nickname──→ QuantumDharmaNPC (personalized speech in TryS
 Assets/
 ├── QuantumDharma/
 │   ├── Scripts/
-│   │   ├── Core/                     # 25 scripts
+│   │   ├── Core/                     # 27 scripts
 │   │   │   ├── QuantumDharmaManager.cs
 │   │   │   ├── FreeEnergyCalculator.cs
 │   │   │   ├── BeliefState.cs
@@ -220,7 +227,9 @@ Assets/
 │   │   │   ├── NameGiving.cs
 │   │   │   ├── Mythology.cs
 │   │   │   ├── CompanionMemory.cs
-│   │   │   └── FarewellBehavior.cs
+│   │   │   ├── FarewellBehavior.cs
+│   │   │   ├── PersonalityPreset.cs
+│   │   │   └── PersonalityInstaller.cs
 │   │   ├── Perception/               # 7 scripts
 │   │   │   ├── PlayerSensor.cs
 │   │   │   ├── MarkovBlanket.cs
