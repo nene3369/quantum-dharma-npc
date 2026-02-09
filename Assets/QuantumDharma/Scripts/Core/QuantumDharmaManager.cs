@@ -1114,7 +1114,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         if (_contextualUtterance != null && trust >= 0.5f)
         {
             bool friendReturned = _sessionMemory != null && _focusPlayer != null
-                && _focusPlayer.IsValid() && _sessionMemory.HasPlayerData(_focusPlayer.playerId)
+                && _focusPlayer.IsValid() && _sessionMemory.IsRemembered(_focusPlayer.playerId)
                 && _beliefState != null && _focusSlotBelief >= 0
                 && _beliefState.IsFriend(_focusSlotBelief);
             if (friendReturned && _npcState != NPC_STATE_GREET && _npcState != NPC_STATE_APPROACH)

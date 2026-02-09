@@ -132,7 +132,7 @@ public class EnvironmentAwareness : UdonSharpBehaviour
         if (_timeTickTimer >= _timeTickInterval)
         {
             _timeTickTimer = 0f;
-            UpdateTimeOfDay(dt * _timeTickInterval);
+            UpdateTimeOfDay(_timeTickInterval);
         }
 
         _obstacleTickTimer += dt;
