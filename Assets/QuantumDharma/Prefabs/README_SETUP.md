@@ -51,9 +51,14 @@ QuantumDharmaNPC              ← Empty GameObject (root)
 ├── CompanionMemory           ← Empty GameObject (optional)
 ├── FarewellBehavior          ← Empty GameObject (optional)
 ├── SpeechOrchestrator        ← Empty GameObject (optional)
+├── AutonomousGoals           ← Empty GameObject (optional)
+├── EnvironmentAwareness      ← Empty GameObject (optional, needs Light ref)
+├── ImitationLearning         ← Empty GameObject (optional)
 ├── NPCMotor                  ← Empty GameObject
 ├── LookAtController          ← Empty GameObject (optional, needs Animator ref)
 ├── EmotionAnimator           ← Empty GameObject (optional, needs Animator ref)
+├── FacialExpressionController ← Empty GameObject (optional, needs SkinnedMeshRenderer)
+├── UpperBodyIK               ← Empty GameObject (optional, needs Animator ref)
 ├── SessionMemory             ← Empty GameObject (optional)
 ├── QuantumDharmaManager      ← Empty GameObject
 ├── FreeEnergyVisualizer      ← Empty GameObject + LineRenderer
@@ -655,7 +660,166 @@ No special components needed on the root. Position this where you want the NPC t
    - Friend: trust > 0.8 or isFriend → extended farewell with personalized text
 6. **Speech:** 24 bilingual farewell utterances (Japanese/English) across all tiers.
 
-### 2g-xxv. SpeechOrchestrator (optional)
+### 2g-xxv. PersonalityPreset + PersonalityInstaller (optional)
+
+1. Create an empty child GameObject under the NPC root named `PersonalityInstaller`
+2. Add **UdonBehaviour**
+3. Attach script: `PersonalityInstaller.cs`
+4. Create a second empty child named `PersonalityPreset`
+5. Add **UdonBehaviour**
+6. Attach script: `PersonalityPreset.cs`
+7. Configure PersonalityInstaller in Inspector:
+   - **Preset:** drag the PersonalityPreset GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Target Components (10 refs):**
+     - **Free Energy Calculator:** drag FreeEnergyCalculator
+     - **Belief State:** drag BeliefState
+     - **Markov Blanket:** drag MarkovBlanket
+     - **NPC:** drag QuantumDharmaNPC
+     - **Adaptive Personality:** drag AdaptivePersonality
+     - **Curiosity Drive:** drag CuriosityDrive
+     - **LookAt Controller:** drag LookAtController
+     - **Emotion Animator:** drag EmotionAnimator
+     - **Gesture Controller:** drag GestureController
+     - **NPC Motor:** drag NPCMotor
+   - **Avatar Models:** (optional) drag up to 5 GameObjects for per-archetype avatar switching
+   - **Install On Start:** true (applies preset at Start)
+   - **Default Archetype:** 0 (0=穏やかな僧, 1=好奇心旺盛な子供, 2=内気な守護者, 3=温かい長老, 4=沈黙の賢者)
+8. **UI buttons (optional):** Link SelectGentleMonk/CuriousChild/ShyGuardian/WarmElder/SilentSage methods to UI buttons for runtime archetype switching
+
+### 2g-xxvi. AutonomousGoals (optional)
+
+1. Create an empty child GameObject under the NPC root named `AutonomousGoals`
+2. Add **UdonBehaviour**
+3. Attach script: `AutonomousGoals.cs`
+4. Configure in Inspector:
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Adaptive Personality:** (optional) drag AdaptivePersonality
+   - **Habit Formation:** (optional) drag HabitFormation
+   - **Curiosity Drive:** (optional) drag CuriosityDrive
+   - **Need Rates:** Solitude 0.005, Social 0.008, Curiosity 0.006, Rest 0.003
+   - **Need Decay:** Solitude 0.02, Social 0.015, Curiosity 0.01, Rest 0.025
+   - **Activation Threshold:** 0.4 (need level that triggers goal pressure)
+   - **Urgent Threshold:** 0.75 (creates urgent goal pressure)
+   - **Tick Interval:** 1.0
+5. **How it works:** Four internal needs accumulate over time and decay when fulfilled:
+   - Solitude: grows when around players, decays when alone or meditating
+   - Social: grows when alone (amplified by loneliness), decays during interaction
+   - Curiosity: grows when stationary, decays when exploring or observing
+   - Rest: grows during active states, decays during idle/meditation
+6. **FEP interpretation:** Needs represent the NPC's prior expectations about its own homeostatic state. Rising needs create prediction error between "expected state" and "current state," driving active inference to reduce it.
+
+### 2g-xxvii. EnvironmentAwareness (optional)
+
+1. Create an empty child GameObject under the NPC root named `EnvironmentAwareness`
+2. Add **UdonBehaviour**
+3. Attach script: `EnvironmentAwareness.cs`
+4. Configure in Inspector:
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Directional Light:** drag the scene's main Directional Light (sun)
+   - **Sun Angles:** Dawn -10°, Day 15°, Dusk 170°, Night 190°
+   - **Fixed Cycle Duration:** 0 (disabled; set > 0 for simulated day/night cycle in seconds)
+   - **Obstacle Check Distance:** 3.0 (meters for forward ray check)
+   - **Obstacle Ray Count:** 5 (fan pattern ray count)
+   - **Obstacle Fan Angle:** 60 (degrees spread)
+   - **Obstacle Layer Mask:** Default (or customize to exclude players)
+   - **Ray Origin Height:** 0.5 (height offset above NPC pivot)
+   - **Ground Check Distance:** 2.0 (downward ray for cliff detection)
+   - **Ground Check Forward Offset:** 1.0 (how far ahead to check ground)
+   - **Time Tick Interval:** 5.0
+   - **Obstacle Tick Interval:** 0.2
+5. **Time-of-day periods:**
+   - Dawn: calm bias 0.15, caution 0 — NPC slightly quieter at dawn
+   - Day: no bias — normal operation
+   - Dusk: calm bias 0.3, caution 0.15 — NPC winding down
+   - Night: calm bias 0.6, caution 0.4 — NPC very cautious and still
+6. **Obstacle avoidance:** The Manager reads `HasObstacleAhead()` and `HasGroundAhead()` during Wander state. If blocked or cliff ahead, NPC stops.
+
+### 2g-xxviii. ImitationLearning (optional)
+
+1. Create an empty child GameObject under the NPC root named `ImitationLearning`
+2. Add **UdonBehaviour**
+3. Attach script: `ImitationLearning.cs`
+4. Configure in Inspector:
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **Player Sensor:** drag the PlayerSensor GameObject
+   - **Belief State:** (optional) drag BeliefState
+   - **Adaptive Personality:** (optional) drag AdaptivePersonality
+   - **Learning Rate:** 0.15 (EMA alpha, lower = slower learning)
+   - **Personality Weight:** 0.4 (how much baseline overrides learned behavior)
+   - **Min Observations:** 3 (visits before adapting)
+   - **Observe Interval:** 2.0 (seconds between observations)
+   - **Baseline:** Approach Speed 1.0, Comfort Distance 3.0, Stay Duration 30.0, Greet Enthusiasm 0.5
+5. **How it works:** Observes player approach speed, stopping distance, and stay duration. Learns a "behavioral template" per player using exponential moving average. The NPC then adapts its own behavior to match — blending learned patterns with its personality baseline.
+6. **Profile management:** Stores up to 16 player profiles. When full, evicts the profile with the fewest observations.
+
+### 2h-iii. FacialExpressionController (optional)
+
+1. Create an empty child GameObject under the NPC root named `FacialExpressionController`
+2. Add **UdonBehaviour**
+3. Attach script: `FacialExpressionController.cs`
+4. Configure in Inspector:
+   - **Skinned Mesh Renderer:** drag the NPC's SkinnedMeshRenderer (face mesh)
+   - **Emotion Animator:** drag the EmotionAnimator GameObject
+   - **NPC:** drag the QuantumDharmaNPC GameObject
+   - **BlendShape Indices:** Set each to the correct index in your mesh's blend shapes:
+     - **Blend Joy:** index of the joy/smile blend shape (-1 to disable)
+     - **Blend Sorrow:** index of the sad/sorrow blend shape
+     - **Blend Angry:** index of the angry blend shape
+     - **Blend Surprise:** index of the surprise blend shape
+     - **Blend Fear:** index of the fear blend shape
+     - **Blend Mouth Open:** index for lip sync mouth-open shape
+     - **Blend Mouth Oh:** (optional) index for rounded mouth shape (-1 to disable)
+   - **Expression Strength:** 80 (max blend shape weight, 0-100)
+   - **Lip Sync Amplitude:** 60 (max mouth-open weight during speech)
+   - **Transition Speed:** 5.0 (expression crossfade speed)
+5. **BlendShape naming:** Common VRM/VRChat blend shape names:
+   - Joy: `Fcl_ALL_Joy` or `smile` or `happy`
+   - Sorrow: `Fcl_ALL_Sorrow` or `sad`
+   - Angry: `Fcl_ALL_Angry` or `angry`
+   - Surprise: `Fcl_ALL_Surprise` or `surprised`
+   - Fear: `Fcl_ALL_Fear` or `scared`
+   - Mouth: `Fcl_MTH_A` or `vrc.v_aa` or `mouth_open`
+6. **Finding blend shape indices:** In Unity, select the SkinnedMeshRenderer, expand BlendShapes in the Inspector. Count from 0 to find each shape's index.
+
+### 2h-iv. UpperBodyIK (optional)
+
+1. Create an empty child GameObject under the NPC root named `UpperBodyIK`
+2. Add **UdonBehaviour**
+3. Attach script: `UpperBodyIK.cs`
+4. Configure in Inspector:
+   - **Animator:** drag the Animator component on the Model GameObject
+   - **Manager:** drag the QuantumDharmaManager GameObject
+   - **NPC:** (optional) drag QuantumDharmaNPC
+   - **Emotion Animator:** (optional) drag EmotionAnimator
+   - **Markov Blanket:** (optional) drag MarkovBlanket
+   - **Spine Lean:**
+     - **Max Forward Lean:** 8 (degrees, for interest/approach)
+     - **Max Backward Lean:** 5 (degrees, for defensive/retreat)
+     - **Lean Speed:** 2.0 (transition smoothness)
+     - **Upper/Lower Spine Weight:** 0.4 / 0.6 (distribution across spine bones)
+   - **Hand Reaching:**
+     - **Reach Trust Threshold:** 0.5 (minimum trust to reach)
+     - **Reach Max Distance:** 2.5 (player must be within this distance)
+     - **Max Reach Angle:** 20 (shoulder/arm rotation degrees)
+     - **Reach Speed:** 3.0 (extension/retraction speed)
+     - **Reach Hand:** 0 (0=right, 1=left)
+   - **Breathing:**
+     - **Breath Amplitude:** 1.5 (degrees of subtle spine sway)
+     - **Breath Frequency:** 0.25 (Hz, ~4 seconds per breath)
+5. **Rig requirements:** Requires a **humanoid rig** with these bones:
+   - `HumanBodyBones.Spine` (lower spine)
+   - `HumanBodyBones.Chest` (upper spine)
+   - `HumanBodyBones.RightShoulder` / `LeftShoulder`
+   - `HumanBodyBones.RightUpperArm` / `LeftUpperArm`
+6. **Behavior summary:**
+   - Lean forward: curious/approaching (trust-scaled)
+   - Lean backward: retreating (defensive)
+   - Upright: meditating or idle
+   - Hand reach: extends toward close, trusted players during social states
+   - Breathing: constant subtle chest/shoulder movement
+
+### 2g-xxix. SpeechOrchestrator (optional)
 
 1. Create an empty child GameObject under the NPC root named `SpeechOrchestrator`
 2. Add **UdonBehaviour**
@@ -742,6 +906,10 @@ No special components needed on the root. Position this where you want the NPC t
    - **Enhanced Behavior:**
    - **Companion Memory:** (optional) drag CompanionMemory
    - **Farewell Behavior:** (optional) drag FarewellBehavior
+   - **Autonomy:**
+   - **Autonomous Goals:** (optional) drag AutonomousGoals
+   - **Environment Awareness:** (optional) drag EnvironmentAwareness
+   - **Imitation Learning:** (optional) drag ImitationLearning
 5. Tune thresholds (defaults are good starting points):
    - **Comfortable Distance:** 4
    - **Approach Threshold:** 1.5
@@ -1069,6 +1237,40 @@ FarewellBehavior
   ├─→ QuantumDharmaNPC         (calls ForceDisplayText for farewell speech)
   └─→ GestureController        (optional: triggers wave/bow gesture on farewell)
 
+PersonalityPreset
+  (no outgoing references — data container read by PersonalityInstaller)
+
+PersonalityInstaller
+  ├─→ PersonalityPreset        (reads archetype parameter values)
+  └─→ 10 target components     (applies params via SetProgramVariable on UdonBehaviour)
+
+AutonomousGoals
+  ├─→ QuantumDharmaManager     (reads NPC state + focus player)
+  ├─→ AdaptivePersonality      (optional: reads sociability/cautiousness for need modulation)
+  ├─→ HabitFormation           (optional: reads loneliness signal for social need amplification)
+  └─→ CuriosityDrive           (optional: reads focus curiosity for curiosity need decay)
+
+EnvironmentAwareness
+  ├─→ QuantumDharmaManager     (reads NPC state for context)
+  └─→ Directional Light        (reads sun angle for time-of-day classification)
+
+ImitationLearning
+  ├─→ QuantumDharmaManager     (reads focus player + focus distance)
+  ├─→ PlayerSensor             (reads tracked player data)
+  ├─→ BeliefState              (optional: reads slot data for player identification)
+  └─→ AdaptivePersonality      (optional: reads cautiousness for personality weight modulation)
+
+FacialExpressionController
+  ├─→ EmotionAnimator          (reads emotion weights for blend shape mapping)
+  ├─→ QuantumDharmaNPC         (reads IsSpeaking for lip sync trigger)
+  └─→ SkinnedMeshRenderer      (drives blend shape weights)
+
+UpperBodyIK
+  ├─→ Animator                 (LateUpdate bone rotation for spine/arm overlay)
+  ├─→ QuantumDharmaManager     (reads NPC state + focus distance)
+  ├─→ EmotionAnimator          (optional: reads emotion weights for lean modulation)
+  └─→ MarkovBlanket            (optional: reads trust for hand reach gating)
+
 SpeechOrchestrator
   ├─→ QuantumDharmaManager     (reads NPC state)
   ├─→ QuantumDharmaNPC         (calls ForceDisplayText for speech output)
@@ -1084,6 +1286,128 @@ FreeEnergyVisualizer
   ├─→ QuantumDharmaManager     (reads normalized prediction error)
   └─→ MarkovBlanket            (reads current radius for ring size)
 ```
+
+---
+
+## 4a. Animator Controller Setup
+
+### Required Animator Parameters
+
+Create these parameters in the NPC's Animator Controller:
+
+#### Emotion Parameters (float, 0-1) — driven by EmotionAnimator
+
+| Parameter | Description |
+|---|---|
+| `EmotionCalm` | Calm/peaceful weight |
+| `EmotionCurious` | Curious/interested weight |
+| `EmotionWary` | Wary/suspicious weight |
+| `EmotionWarm` | Warm/friendly weight |
+| `EmotionAfraid` | Afraid/anxious weight |
+
+#### System Parameters (float) — driven by EmotionAnimator
+
+| Parameter | Range | Description |
+|---|---|---|
+| `BreathAmplitude` | 0-1 | Maps to free energy (high FE = tense breathing) |
+| `NpcState` | 0-7 | Current NPC behavioral state (cast from int) |
+| `FreeEnergy` | 0+ | Raw free energy value |
+| `Trust` | -1 to 1 | Current trust level |
+| `MotorSpeed` | 0+ | NPC movement speed |
+
+#### Gesture Triggers — driven by GestureController
+
+| Parameter | Type | Animation |
+|---|---|---|
+| `GestureWave` | Trigger | Hand wave (greeting) |
+| `GestureBow` | Trigger | Bow (respect/gratitude) |
+| `GestureHeadTilt` | Trigger | Head tilt (curiosity) |
+| `GestureNod` | Trigger | Nod (acknowledgment) |
+| `GestureBeckon` | Trigger | Beckon hand motion (invitation) |
+| `GestureFlinch` | Trigger | Flinch/startle reaction |
+| `GestureShake` | Trigger | Head shake (gentle withdrawal) |
+| `GestureRetreat` | Trigger | Retreat gesture (step back) |
+| `GestureIntensity` | Float (0-1) | Scales gesture magnitude with trust |
+
+#### Mirror Parameters (float, 0-1) — driven by MirrorBehavior
+
+| Parameter | Description |
+|---|---|
+| `MirrorCrouch` | How much the NPC crouches to match player |
+| `MirrorLean` | How much the NPC leans to match player |
+
+#### Blink Parameter (float) — driven by LookAtController
+
+| Parameter | Range | Description |
+|---|---|---|
+| `Blink` | 0-1 | Eye blink weight (1 = eyes closed) |
+
+### Blend Tree Recommendations
+
+1. **Base Layer:** Idle/walk/run based on `MotorSpeed`
+2. **Emotion Layer (Additive):** Use 2D Freeform Directional blend tree with `EmotionCalm`/`EmotionCurious`/`EmotionWary`/`EmotionWarm`/`EmotionAfraid` driving posture variations
+3. **Gesture Layer (Override):** Trigger-based transitions from Any State → Gesture clip → Idle, with "Has Exit Time" enabled
+4. **NPC State:** Can drive layer weights or override states (e.g., Meditate → specific seated pose)
+
+### Humanoid Rig Requirements
+
+The following bones must be mapped in the humanoid rig:
+
+| Bone | Used By | Purpose |
+|---|---|---|
+| `Head` | LookAtController | Gaze tracking |
+| `LeftEye` | LookAtController | Eye gaze (optional, graceful fallback) |
+| `RightEye` | LookAtController | Eye gaze (optional, graceful fallback) |
+| `Spine` | UpperBodyIK | Lower spine lean |
+| `Chest` | UpperBodyIK | Upper spine lean + breathing |
+| `RightShoulder` | UpperBodyIK | Shoulder rotation for hand reach |
+| `LeftShoulder` | UpperBodyIK | Shoulder rotation + breathing lift |
+| `RightUpperArm` | UpperBodyIK | Arm extension for hand reach |
+| `LeftUpperArm` | UpperBodyIK | Arm extension for hand reach |
+
+## 4b. BlendShape (Facial Expression) Setup
+
+### Required BlendShapes
+
+The NPC's face mesh (`SkinnedMeshRenderer`) should have these blend shapes. Set the corresponding index in `FacialExpressionController`'s Inspector. Use `-1` to disable any missing shape.
+
+| Inspector Field | Common VRM Names | Common VRChat Names | Purpose |
+|---|---|---|---|
+| `_blendJoy` | `Fcl_ALL_Joy` | `happy`, `smile` | Calm/warm/grateful |
+| `_blendSorrow` | `Fcl_ALL_Sorrow` | `sad` | Anxiety/loneliness |
+| `_blendAngry` | `Fcl_ALL_Angry` | `angry` | Wary/hostile |
+| `_blendSurprise` | `Fcl_ALL_Surprise` | `surprised` | Curious/novelty |
+| `_blendFear` | `Fcl_ALL_Fear` | `scared` | Afraid/startled |
+| `_blendMouthOpen` | `Fcl_MTH_A` | `vrc.v_aa`, `mouth_open` | Lip sync (primary) |
+| `_blendMouthOh` | `Fcl_MTH_O` | `vrc.v_oh` | Lip sync (secondary, optional) |
+
+### Finding BlendShape Indices
+
+1. Select the face mesh GameObject in Unity
+2. In Inspector, find the `SkinnedMeshRenderer` component
+3. Expand the **BlendShapes** section
+4. Count from 0 — each entry's position is its index
+5. Enter the index number for each field in FacialExpressionController
+
+### Expression Weight Mapping
+
+FacialExpressionController computes target weights from EmotionAnimator:
+
+| BlendShape | Formula (from emotion weights) |
+|---|---|
+| Joy | `calm * 0.3 + warm * 0.8 + grateful * 0.9` |
+| Surprise | `curious * 0.9` |
+| Angry | `wary * 0.7` |
+| Fear | `afraid * 0.8` |
+| Sorrow | `wary * 0.4` (only when warm < 0.2 and wary > 0.3) |
+
+### Lip Sync Details
+
+- Pseudo lip sync (no voice analysis — VRChat limitation)
+- Fires only during `IsSpeaking()` (when utterance text is displayed)
+- Pattern: `abs(sin(phase))` with random frequency variation every ~0.3s
+- 15% chance of pause between syllable bursts
+- `_blendMouthOh` provides secondary shape for variation (optional)
 
 ---
 
@@ -1230,6 +1554,35 @@ FreeEnergyVisualizer
 - [ ] SpeechOrchestrator: verify norm commentary appears with low probability during Observe
 - [ ] Multiple speech sources fire simultaneously — verify FIFO queue displays them in sequence
 - [ ] Verify speech queue does not exceed 4 entries (oldest dropped if full)
+- [ ] Personality: select each archetype via Inspector button — verify parameter changes
+- [ ] Personality: switch archetype at runtime — verify NPC behavior changes (sociability, caution, etc.)
+- [ ] Personality: verify avatar model switching (if _avatarModels configured)
+- [ ] AutonomousGoals: leave NPC alone → verify Social need rises → Wander state
+- [ ] AutonomousGoals: interact for a long time → verify Solitude need rises → Meditate eventually
+- [ ] AutonomousGoals: keep NPC stationary → verify Curiosity need rises → Wander bias increases
+- [ ] AutonomousGoals: active movement states → verify Rest need rises → Meditate/Silence bias
+- [ ] EnvironmentAwareness: rotate Directional Light → verify time period changes (Dawn/Day/Dusk/Night)
+- [ ] EnvironmentAwareness: at Night → verify NPC is more cautious and calm
+- [ ] EnvironmentAwareness: place obstacle in front of wandering NPC → verify it stops
+- [ ] EnvironmentAwareness: NPC near cliff edge → verify HasGroundAhead returns false and NPC stops
+- [ ] ImitationLearning: approach NPC slowly → verify NPC learns slow approach speed
+- [ ] ImitationLearning: approach NPC quickly → verify NPC learns faster approach speed
+- [ ] ImitationLearning: visit 3+ times → verify adapted behavior activates (min observations met)
+- [ ] ImitationLearning: verify cautious personality NPCs stick to baseline more
+- [ ] FacialExpressionController: trigger each emotion → verify corresponding blend shape activates
+- [ ] FacialExpressionController: trigger NPC speech → verify mouth opens with syllable-like rhythm
+- [ ] FacialExpressionController: verify lip sync stops when speech ends
+- [ ] FacialExpressionController: set blend index to -1 → verify that shape is skipped gracefully
+- [ ] UpperBodyIK: NPC in Approach → verify subtle forward lean
+- [ ] UpperBodyIK: NPC in Retreat → verify backward lean
+- [ ] UpperBodyIK: NPC in Meditate → verify upright posture (no lean)
+- [ ] UpperBodyIK: high trust + close proximity → verify hand reaches toward player
+- [ ] UpperBodyIK: verify constant breathing micro-motion on chest/shoulders
+- [ ] State: NPC alone for a while → verify Wander state with waypoint patrol
+- [ ] State: NPC calm + low FE + alone → verify Meditate state (deep stillness)
+- [ ] State: friend returns → verify Greet state with wave+bow gesture chain
+- [ ] State: high trust + curiosity + friendly → verify Play state
+- [ ] State: Greet/Play → verify idle gestures fire (nod, bow, head tilt, beckon)
 - [ ] Verify slot eviction when 16 players registered: lowest-significance slot freed
 - [ ] Verify adaptive tick interval: ≤8 players = base, 9-16 = 1.5×, 17-32 = 2×, 33+ = 3×
 - [ ] Run NUnit tests: Window > General > Test Runner > Edit Mode > Run All (38 tests pass)
@@ -1269,3 +1622,10 @@ FreeEnergyVisualizer
 - FarewellBehavior: event-driven (triggers on player departure); no per-frame cost when idle
 - SpeechOrchestrator: called once per decision tick; delegates to speech sources with simple null checks — negligible overhead
 - QuantumDharmaNPC speech queue: FIFO array (max 4 entries); O(1) pop on display expiry — no measurable cost
+- PersonalityPreset: data container only, zero runtime cost
+- PersonalityInstaller: only runs at Start() or on button press — zero continuous cost
+- AutonomousGoals: ticks every 1s; simple arithmetic on 4 floats — negligible
+- EnvironmentAwareness: time check every 5s (one euler angle read); obstacle check every 0.2s (5 raycasts) — acceptable on Quest
+- ImitationLearning: ticks every 2s; simple EMA on 4 values per player — negligible
+- FacialExpressionController: runs per frame; 5 SetBlendShapeWeight + 2 lip sync = 7 calls — lightweight
+- UpperBodyIK: runs per LateUpdate; 6 bone rotation overlays (Quaternion multiply) — comparable to LookAtController
