@@ -68,6 +68,9 @@ public class FreeEnergyVisualizer : UdonSharpBehaviour
 
     private void Start()
     {
+        // Ensure segment count is at least 1 to prevent division by zero and empty arrays
+        if (_segmentCount < 1) _segmentCount = 32;
+
         // Pre-allocate ring position array (+1 to close the loop)
         _ringPositions = new Vector3[_segmentCount + 1];
 
@@ -116,8 +119,7 @@ public class FreeEnergyVisualizer : UdonSharpBehaviour
         float radius = _markovBlanket != null ? _markovBlanket.GetCurrentRadius() : 5f;
         Vector3 center = transform.position + Vector3.up * _ringHeight;
 
-        int segments = _segmentCount > 0 ? _segmentCount : 32;
-        float angleStep = 360f / segments;
+        float angleStep = 360f / _segmentCount;
         for (int i = 0; i <= _segmentCount; i++)
         {
             float angle = i * angleStep * Mathf.Deg2Rad;
