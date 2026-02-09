@@ -112,7 +112,7 @@ public class AdaptivePersonality : UdonSharpBehaviour
     {
         if (_beliefState == null || _manager == null) return;
 
-        int focusSlot = _manager.GetFocusSlot();
+        int focusSlot = _manager.GetFocusSlotBelief();
         if (focusSlot < 0)
         {
             // No players present → peaceful time

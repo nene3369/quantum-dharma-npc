@@ -157,7 +157,8 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     private float _predictionErrorGaze;
     private float _decisionTimer;
     private int _dominantIntent;
-    private int _focusSlot;    // slot index in FreeEnergyCalculator/BeliefState
+    private int _focusSlot;         // slot index in FreeEnergyCalculator
+    private int _focusSlotBelief;   // slot index in BeliefState (may differ from _focusSlot)
 
     // Closest player cache
     private VRCPlayerApi _focusPlayer;
@@ -199,6 +200,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         _decisionTimer = 0f;
         _dominantIntent = 1; // Neutral
         _focusSlot = -1;
+        _focusSlotBelief = -1;
         _lastTrackedIds = new int[MAX_TRACK];
         _lastTrackedCount = 0;
         _interactionTimes = new float[MAX_TRACK];
@@ -380,6 +382,7 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         _focusApproachSpeed = 0f;
         _focusGazeDot = 0f;
         _focusSlot = -1;
+        _focusSlotBelief = -1;
 
         if (_playerSensor == null) return;
 
@@ -647,13 +650,18 @@ public class QuantumDharmaManager : UdonSharpBehaviour
             _interactionTimes[i] = _tempInteractionTimes[i];
         }
 
-        // Cache focus player slot
+        // Cache focus player slots (FE and BS may have different indices after eviction)
         if (_focusPlayer != null && _focusPlayer.IsValid())
         {
             if (_freeEnergyCalculator != null)
                 _focusSlot = _freeEnergyCalculator.FindSlot(_focusPlayer.playerId);
-            else if (_beliefState != null)
-                _focusSlot = _beliefState.FindSlot(_focusPlayer.playerId);
+            if (_beliefState != null)
+                _focusSlotBelief = _beliefState.FindSlot(_focusPlayer.playerId);
+            // Fallback: if only one system is wired, share the slot index
+            if (_freeEnergyCalculator == null && _beliefState != null)
+                _focusSlot = _focusSlotBelief;
+            if (_beliefState == null && _freeEnergyCalculator != null)
+                _focusSlotBelief = _focusSlot;
         }
 
         // Save IDs for next tick
@@ -707,18 +715,18 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         }
 
         // Feed attention-based precision multipliers per slot (FEP: attention IS precision)
+        // AttentionSystem indexes by BeliefState slots, so use BS slot for lookup
         if (_attentionSystem != null)
         {
             for (int i = 0; i < count; i++)
             {
                 VRCPlayerApi ap = _playerSensor.GetTrackedPlayer(i);
                 if (ap == null || !ap.IsValid()) continue;
-                int aSlot = _freeEnergyCalculator.FindSlot(ap.playerId);
-                if (aSlot >= 0)
-                {
-                    _freeEnergyCalculator.SetSlotPrecisionMultiplier(
-                        aSlot, _attentionSystem.GetPrecisionMultiplier(aSlot));
-                }
+                int feSlot = _freeEnergyCalculator.FindSlot(ap.playerId);
+                if (feSlot < 0) continue;
+                int bsSlot = _beliefState != null ? _beliefState.FindSlot(ap.playerId) : feSlot;
+                _freeEnergyCalculator.SetSlotPrecisionMultiplier(
+                    feSlot, _attentionSystem.GetPrecisionMultiplier(bsSlot >= 0 ? bsSlot : feSlot));
             }
         }
 
@@ -826,10 +834,10 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                                        voiceSignal);
         }
 
-        // Cache dominant intent for focus player
-        if (_focusSlot >= 0)
+        // Cache dominant intent for focus player (use BS slot, not FE slot)
+        if (_focusSlotBelief >= 0)
         {
-            _dominantIntent = _beliefState.GetDominantIntent(_focusSlot);
+            _dominantIntent = _beliefState.GetDominantIntent(_focusSlotBelief);
         }
         else
         {
@@ -1021,9 +1029,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
 
         // Friend-of-friend bonus reduces effective free energy for grouped players
         float fofReduction = 0f;
-        if (_groupDynamics != null && _focusSlot >= 0)
+        if (_groupDynamics != null && _focusSlotBelief >= 0)
         {
-            fofReduction = _groupDynamics.GetFriendOfFriendBonus(_focusSlot) * FOF_BONUS_SCALE;
+            fofReduction = _groupDynamics.GetFriendOfFriendBonus(_focusSlotBelief) * FOF_BONUS_SCALE;
         }
 
         // Ritual participation bonus: lower action cost when ritual is active (shared rhythm)
@@ -1067,9 +1075,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
 
         // Enhanced: use BeliefState dominant intent for richer decisions
-        if (_beliefState != null && _focusSlot >= 0)
+        if (_beliefState != null && _focusSlotBelief >= 0)
         {
-            int intent = _beliefState.GetDominantIntent(_focusSlot);
+            int intent = _beliefState.GetDominantIntent(_focusSlotBelief);
 
             // Threat intent + moderate F → Retreat even below threshold
             if (intent == BeliefState.INTENT_THREAT && effectiveFreeEnergy > effectiveApproachThreshold)
@@ -1105,9 +1113,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         if (_npcMotor == null) return;
 
         // Trust-based speed modulation: higher trust = faster approach
-        if (_focusSlot >= 0 && _beliefState != null)
+        if (_focusSlotBelief >= 0 && _beliefState != null)
         {
-            float focusTrust = _beliefState.GetSlotTrust(_focusSlot);
+            float focusTrust = _beliefState.GetSlotTrust(_focusSlotBelief);
             _npcMotor.SetTrustSpeedModifier(focusTrust);
         }
 
@@ -1152,12 +1160,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         float normalizedFE = GetNormalizedPredictionError();
         float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
 
-        _npc.OnDecisionTick(_npcState, normalizedFE, trust, _dominantIntent, _focusSlot);
+        _npc.OnDecisionTick(_npcState, normalizedFE, trust, _dominantIntent, _focusSlotBelief);
 
         // Delegate speech, stories, trust adjustments to SpeechOrchestrator
         if (_speechOrchestrator != null)
         {
-            _speechOrchestrator.Tick(_npcState, _focusPlayer, _focusSlot);
+            _speechOrchestrator.Tick(_npcState, _focusPlayer, _focusSlotBelief);
         }
     }
 
@@ -1217,6 +1225,16 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public int GetFocusSlot()
     {
         return _focusSlot;
+    }
+
+    /// <summary>
+    /// Returns the focus player's slot in BeliefState. May differ from
+    /// GetFocusSlot() (FreeEnergyCalculator slot) when eviction criteria diverge.
+    /// External components that query BeliefState should use this instead.
+    /// </summary>
+    public int GetFocusSlotBelief()
+    {
+        return _focusSlotBelief;
     }
 
     public float GetNormalizedPredictionError()
