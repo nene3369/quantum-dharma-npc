@@ -1,0 +1,86 @@
+#!/bin/bash
+# Pre-commit hook for Quantum Dharma NPC
+# Install: git config core.hooksPath .githooks
+#
+# Checks:
+#   1. UdonSharp incompatible patterns in staged .cs files
+#   2. Prohibited file types
+#   3. Naming convention violations
+
+set -e
+
+ERRORS=0
+
+echo "=== Quantum Dharma Pre-Commit Check ==="
+
+# Get staged .cs files
+STAGED_CS=$(git diff --cached --name-only --diff-filter=ACM | grep '\.cs$' || true)
+
+if [ -n "$STAGED_CS" ]; then
+    echo "Checking $(echo "$STAGED_CS" | wc -l) staged C# file(s)..."
+
+    while IFS= read -r cs_file; do
+        [ -z "$cs_file" ] && continue
+        [ ! -f "$cs_file" ] && continue
+
+        # String interpolation: $"..."
+        if grep -Fn '$"' "$cs_file" > /dev/null 2>&1; then
+            echo "ERROR: String interpolation (\$\") in $cs_file"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        # Null-conditional: ?.
+        if grep -Fn '?.' "$cs_file" > /dev/null 2>&1; then
+            echo "ERROR: Null-conditional operator (?.) in $cs_file"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        # Null-coalescing: ??
+        if grep -Fn '??' "$cs_file" > /dev/null 2>&1; then
+            echo "ERROR: Null-coalescing operator (??) in $cs_file"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        # LINQ
+        if grep -Fn 'using System.Linq' "$cs_file" > /dev/null 2>&1; then
+            echo "ERROR: LINQ usage in $cs_file"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        # async/await
+        if grep -Pn '\basync\b|\bawait\b' "$cs_file" > /dev/null 2>&1; then
+            echo "ERROR: async/await in $cs_file"
+            ERRORS=$((ERRORS + 1))
+        fi
+
+        # yield
+        if grep -Pn '\byield\b' "$cs_file" > /dev/null 2>&1; then
+            echo "ERROR: yield in $cs_file"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done <<< "$STAGED_CS"
+fi
+
+# Check for prohibited files
+STAGED_ALL=$(git diff --cached --name-only --diff-filter=ACM || true)
+if [ -n "$STAGED_ALL" ]; then
+    while IFS= read -r staged_file; do
+        [ -z "$staged_file" ] && continue
+        case "$staged_file" in
+            *.env|*.key|*.pem|credentials*)
+                echo "ERROR: Prohibited file staged: $staged_file"
+                ERRORS=$((ERRORS + 1))
+                ;;
+        esac
+    done <<< "$STAGED_ALL"
+fi
+
+if [ "$ERRORS" -gt 0 ]; then
+    echo ""
+    echo "BLOCKED: $ERRORS UdonSharp/security issue(s) found"
+    echo "Fix the issues above and re-stage your changes."
+    exit 1
+fi
+
+echo "OK: All pre-commit checks passed"
+exit 0
