@@ -21,6 +21,7 @@ public class QuantumDharmaCreator : EditorWindow
     private bool _autoWire = true;
     private bool _generateAnimator = true;
     private bool _autoMapBlendShapes = true;
+    private bool _createArchetypeUI = true;
     private bool _runValidation = true;
     private Vector2 _scrollPos;
     private readonly List<string> _log = new List<string>();
@@ -108,6 +109,7 @@ public class QuantumDharmaCreator : EditorWindow
         _autoWire = EditorGUILayout.Toggle("Auto-Wire After Creation", _autoWire);
         _generateAnimator = EditorGUILayout.Toggle("Generate Animator Controller", _generateAnimator);
         _autoMapBlendShapes = EditorGUILayout.Toggle("Auto-Map BlendShapes", _autoMapBlendShapes);
+        _createArchetypeUI = EditorGUILayout.Toggle("Create Archetype Selection UI", _createArchetypeUI);
         _runValidation = EditorGUILayout.Toggle("Run Validation After", _runValidation);
 
         EditorGUILayout.Space(8);
@@ -251,6 +253,12 @@ public class QuantumDharmaCreator : EditorWindow
         WireParticlesAndVisuals(root, emotionParticles, dreamParticles,
             giftParticles, feRing);
 
+        // ── 6b. Archetype Selection UI ──
+        if (_createArchetypeUI)
+        {
+            CreateArchetypeSelectionUI(root, typeMap);
+        }
+
         // ── 7. Auto-wire all component cross-references ──
         if (_autoWire)
         {
@@ -313,6 +321,7 @@ public class QuantumDharmaCreator : EditorWindow
         if (!_autoMapBlendShapes)
             remaining.Add("  - Set blend shape indices on FacialExpressionController");
         remaining.Add("  - Assign AnimationClips (idle, walk, gestures)");
+        remaining.Add("  - Assign avatar models to PersonalityInstaller._avatarModels[] for switching");
 
         if (remaining.Count > 0)
         {
@@ -523,6 +532,299 @@ public class QuantumDharmaCreator : EditorWindow
 
         _log.Add("[CHILD] DebugCanvas (World Space, 6 Text labels)");
     }
+
+    // ================================================================
+    // Archetype Selection UI
+    // ================================================================
+
+    private void CreateArchetypeSelectionUI(GameObject root,
+        Dictionary<string, Type> typeMap)
+    {
+        _log.Add("---");
+        _log.Add("[ARCHETYPE-UI] Creating selection panel...");
+
+        // ── Canvas object (separate from Debug UI) ──
+        GameObject canvasObj = CreateChild(root, "ArchetypeSelectionCanvas");
+        Canvas canvas = canvasObj.AddComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvasObj.AddComponent<CanvasScaler>();
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        RectTransform canvasRect = canvasObj.GetComponent<RectTransform>();
+        canvasRect.sizeDelta = new Vector2(320, 420);
+        canvasRect.localScale = Vector3.one * 0.002f;
+        canvasRect.localPosition = new Vector3(-0.8f, 1.5f, 0f);
+
+        // Collider for VRChat Interact
+        BoxCollider col = canvasObj.AddComponent<BoxCollider>();
+        col.size = new Vector3(320f, 420f, 1f);
+        col.center = Vector3.zero;
+
+        // ── Add ArchetypeSelectionUI component ──
+        Component archetypeUI = null;
+        if (typeMap.ContainsKey("ArchetypeSelectionUI"))
+        {
+            archetypeUI = canvasObj.AddComponent(typeMap["ArchetypeSelectionUI"]);
+            _log.Add("[ARCHETYPE-UI] Added ArchetypeSelectionUI component");
+        }
+        else
+        {
+            _log.Add("[WARN] ArchetypeSelectionUI type not found — " +
+                "buttons will need manual wiring");
+        }
+
+        // ── Panel background ──
+        GameObject panel = CreateChild(canvasObj, "Panel");
+        RectTransform panelRect = panel.AddComponent<RectTransform>();
+        panelRect.anchorMin = Vector2.zero;
+        panelRect.anchorMax = Vector2.one;
+        panelRect.offsetMin = Vector2.zero;
+        panelRect.offsetMax = Vector2.zero;
+
+        Image panelBg = panel.AddComponent<Image>();
+        panelBg.color = new Color(0.08f, 0.08f, 0.15f, 0.9f);
+
+        // ── Title text ──
+        GameObject titleObj = CreateChild(panel, "TitleText");
+        RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+        titleRect.anchorMin = new Vector2(0f, 1f);
+        titleRect.anchorMax = new Vector2(1f, 1f);
+        titleRect.pivot = new Vector2(0.5f, 1f);
+        titleRect.anchoredPosition = new Vector2(0f, -8f);
+        titleRect.sizeDelta = new Vector2(0f, 40f);
+
+        Text titleText = titleObj.AddComponent<Text>();
+        titleText.text = "性格を選択 / Select Personality";
+        titleText.fontSize = 20;
+        titleText.fontStyle = FontStyle.Bold;
+        titleText.color = new Color(0.9f, 0.9f, 1f);
+        titleText.alignment = TextAnchor.MiddleCenter;
+
+        // ── Archetype buttons ──
+        string[] methodNames = new string[]
+        {
+            "OnSelectGentleMonk",
+            "OnSelectCuriousChild",
+            "OnSelectShyGuardian",
+            "OnSelectWarmElder",
+            "OnSelectSilentSage"
+        };
+
+        string[] labelTexts = new string[]
+        {
+            "穏やかな僧 / Gentle Monk",
+            "好奇心旺盛な子供 / Curious Child",
+            "内気な守護者 / Shy Guardian",
+            "温かい長老 / Warm Elder",
+            "沈黙の賢者 / Silent Sage"
+        };
+
+        string[] descTexts = new string[]
+        {
+            "静かで忍耐強く、沈黙を好む",
+            "活発で好奇心に満ち、すぐに友達になる",
+            "慎重で警戒心が強いが、信頼すると忠実",
+            "寛大で友好的、深い知恵を持つ",
+            "寡黙だが、語る時は意味深い"
+        };
+
+        float buttonStartY = -56f;
+        float buttonHeight = 58f;
+        float buttonSpacing = 4f;
+        Image[] buttonImages = new Image[5];
+
+        // Find UdonBehaviour on the canvas object for button wiring
+        Component udonTarget = FindUdonBehaviour(canvasObj);
+
+        for (int i = 0; i < 5; i++)
+        {
+            float yPos = buttonStartY - i * (buttonHeight + buttonSpacing);
+
+            // Button container
+            GameObject btnObj = CreateChild(panel, "Button_" + i);
+            RectTransform btnRect = btnObj.AddComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(0f, 1f);
+            btnRect.anchorMax = new Vector2(1f, 1f);
+            btnRect.pivot = new Vector2(0.5f, 1f);
+            btnRect.anchoredPosition = new Vector2(0f, yPos);
+            btnRect.sizeDelta = new Vector2(-16f, buttonHeight);
+
+            Image btnBg = btnObj.AddComponent<Image>();
+            btnBg.color = new Color(0.15f, 0.15f, 0.25f, 0.85f);
+            buttonImages[i] = btnBg;
+
+            Button btn = btnObj.AddComponent<Button>();
+            btn.targetGraphic = btnBg;
+
+            // Wire Button.OnClick → UdonBehaviour.SendCustomEvent
+            if (udonTarget != null)
+            {
+                WireButtonOnClick(btn, udonTarget, methodNames[i]);
+                _log.Add("[WIRE] Button_" + i + ".OnClick -> " + methodNames[i]);
+            }
+
+            // Label text
+            GameObject labelObj = CreateChild(btnObj, "Label");
+            RectTransform labelRect = labelObj.AddComponent<RectTransform>();
+            labelRect.anchorMin = new Vector2(0f, 0.4f);
+            labelRect.anchorMax = new Vector2(1f, 1f);
+            labelRect.offsetMin = new Vector2(10f, 0f);
+            labelRect.offsetMax = new Vector2(-10f, -4f);
+
+            Text label = labelObj.AddComponent<Text>();
+            label.text = labelTexts[i];
+            label.fontSize = 14;
+            label.fontStyle = FontStyle.Bold;
+            label.color = Color.white;
+            label.alignment = TextAnchor.MiddleLeft;
+
+            // Description text
+            GameObject descObj = CreateChild(btnObj, "Desc");
+            RectTransform descRect = descObj.AddComponent<RectTransform>();
+            descRect.anchorMin = new Vector2(0f, 0f);
+            descRect.anchorMax = new Vector2(1f, 0.4f);
+            descRect.offsetMin = new Vector2(10f, 2f);
+            descRect.offsetMax = new Vector2(-10f, 0f);
+
+            Text desc = descObj.AddComponent<Text>();
+            desc.text = descTexts[i];
+            desc.fontSize = 11;
+            desc.color = new Color(0.7f, 0.7f, 0.8f);
+            desc.alignment = TextAnchor.MiddleLeft;
+        }
+
+        // ── Status text ──
+        GameObject statusObj = CreateChild(panel, "StatusText");
+        RectTransform statusRect = statusObj.AddComponent<RectTransform>();
+        statusRect.anchorMin = new Vector2(0f, 0f);
+        statusRect.anchorMax = new Vector2(1f, 0f);
+        statusRect.pivot = new Vector2(0.5f, 0f);
+        statusRect.anchoredPosition = new Vector2(0f, 8f);
+        statusRect.sizeDelta = new Vector2(0f, 30f);
+
+        Text statusText = statusObj.AddComponent<Text>();
+        statusText.text = "未選択 / Not Selected";
+        statusText.fontSize = 13;
+        statusText.color = new Color(0.8f, 0.85f, 1f);
+        statusText.alignment = TextAnchor.MiddleCenter;
+
+        // ── Wire ArchetypeSelectionUI fields ──
+        if (archetypeUI != null)
+        {
+            SerializedObject so = new SerializedObject(archetypeUI);
+
+            // _panel → Panel
+            SerializedProperty panelProp = so.FindProperty("_panel");
+            if (panelProp != null) panelProp.objectReferenceValue = panel;
+
+            // _statusText → StatusText
+            SerializedProperty statusProp = so.FindProperty("_statusText");
+            if (statusProp != null) statusProp.objectReferenceValue = statusText;
+
+            // _buttonImages → Image[]
+            SerializedProperty btnImgProp = so.FindProperty("_buttonImages");
+            if (btnImgProp != null)
+            {
+                btnImgProp.arraySize = 5;
+                for (int i = 0; i < 5; i++)
+                {
+                    btnImgProp.GetArrayElementAtIndex(i).objectReferenceValue =
+                        buttonImages[i];
+                }
+            }
+
+            // _installer → PersonalityInstaller (from root)
+            UdonSharpBehaviour[] rootBehaviours =
+                root.GetComponents<UdonSharpBehaviour>();
+            foreach (UdonSharpBehaviour usb in rootBehaviours)
+            {
+                if (usb.GetType().Name == "PersonalityInstaller")
+                {
+                    SerializedProperty instProp = so.FindProperty("_installer");
+                    if (instProp != null) instProp.objectReferenceValue = usb;
+                    _log.Add("[WIRE] ArchetypeSelectionUI._installer -> " +
+                        "PersonalityInstaller");
+                    break;
+                }
+            }
+
+            // _preset → PersonalityPreset (from root)
+            foreach (UdonSharpBehaviour usb in rootBehaviours)
+            {
+                if (usb.GetType().Name == "PersonalityPreset")
+                {
+                    SerializedProperty presetProp = so.FindProperty("_preset");
+                    if (presetProp != null) presetProp.objectReferenceValue = usb;
+                    _log.Add("[WIRE] ArchetypeSelectionUI._preset -> " +
+                        "PersonalityPreset");
+                    break;
+                }
+            }
+
+            so.ApplyModifiedProperties();
+        }
+
+        _log.Add("[ARCHETYPE-UI] Selection panel created (" +
+            "5 buttons, status text, auto-wired)");
+    }
+
+    /// <summary>
+    /// Finds the UdonBehaviour component on a GameObject.
+    /// In UdonSharp, each UdonSharpBehaviour has a backing UdonBehaviour.
+    /// </summary>
+    private Component FindUdonBehaviour(GameObject go)
+    {
+        Component[] allComps = go.GetComponents<Component>();
+        foreach (Component c in allComps)
+        {
+            if (c == null) continue;
+            // Match by type name to avoid hard dependency on VRC.Udon assembly
+            if (c.GetType().Name == "UdonBehaviour")
+            {
+                return c;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Wires a Button.OnClick event to call SendCustomEvent on an UdonBehaviour.
+    /// Uses SerializedProperty to manipulate persistent calls without needing
+    /// direct reference to VRC.Udon types at compile time.
+    /// </summary>
+    private void WireButtonOnClick(Button button, Component udonTarget,
+        string eventName)
+    {
+        SerializedObject btnSO = new SerializedObject(button);
+        SerializedProperty onClick = btnSO.FindProperty("m_OnClick");
+        if (onClick == null) return;
+
+        SerializedProperty calls =
+            onClick.FindPropertyRelative("m_PersistentCalls.m_Calls");
+        if (calls == null) return;
+
+        int index = calls.arraySize;
+        calls.InsertArrayElementAtIndex(index);
+        SerializedProperty call = calls.GetArrayElementAtIndex(index);
+
+        call.FindPropertyRelative("m_Target").objectReferenceValue = udonTarget;
+        call.FindPropertyRelative("m_TargetAssemblyTypeName").stringValue =
+            udonTarget.GetType().AssemblyQualifiedName;
+        call.FindPropertyRelative("m_MethodName").stringValue =
+            "SendCustomEvent";
+        // PersistentListenerMode.String = 5
+        call.FindPropertyRelative("m_Mode").intValue = 5;
+        call.FindPropertyRelative("m_Arguments")
+            .FindPropertyRelative("m_StringArgument").stringValue = eventName;
+        // UnityEventCallState.RuntimeOnly = 2
+        call.FindPropertyRelative("m_CallState").intValue = 2;
+
+        btnSO.ApplyModifiedProperties();
+    }
+
+    // ================================================================
+    // Helpers
+    // ================================================================
 
     private void SetRef(SerializedObject so, string propName,
         UnityEngine.Object value)
