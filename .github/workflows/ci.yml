@@ -20,7 +20,7 @@ jobs:
           echo ""
           echo "This is a Unity/UdonSharp (VRChat) project."
           echo "Full compilation requires Unity 2022.3 LTS + VRChat SDK."
-          echo "CI performs structural validation only."
+          echo "CI performs structural validation and lint checks."
           echo ""
 
           # Check that essential directories exist
@@ -28,7 +28,9 @@ jobs:
             "Assets/QuantumDharma/Scripts/Core" \
             "Assets/QuantumDharma/Scripts/Perception" \
             "Assets/QuantumDharma/Scripts/Action" \
-            "Assets/QuantumDharma/Scripts/UI"; do
+            "Assets/QuantumDharma/Scripts/UI" \
+            "Assets/QuantumDharma/Scripts/Editor" \
+            "Assets/QuantumDharma/Tests/Editor"; do
             if [ ! -d "$dir" ]; then
               echo "FAIL: Missing directory: $dir"
               exit 1
@@ -36,24 +38,46 @@ jobs:
             echo "OK: $dir"
           done
 
-      - name: Count and list scripts
+      - name: Validate component manifest
         run: |
-          echo "=== Script Inventory ==="
+          echo "=== Component Manifest Validation ==="
           CORE=$(find Assets/QuantumDharma/Scripts/Core -name '*.cs' | wc -l)
           PERCEPTION=$(find Assets/QuantumDharma/Scripts/Perception -name '*.cs' | wc -l)
           ACTION=$(find Assets/QuantumDharma/Scripts/Action -name '*.cs' | wc -l)
           UI=$(find Assets/QuantumDharma/Scripts/UI -name '*.cs' | wc -l)
-          TOTAL=$((CORE + PERCEPTION + ACTION + UI))
+          EDITOR=$(find Assets/QuantumDharma/Scripts/Editor -name '*.cs' | wc -l)
+          TESTS=$(find Assets/QuantumDharma/Tests -name '*.cs' | wc -l)
+          RUNTIME=$((CORE + PERCEPTION + ACTION + UI))
 
-          echo "Core:       $CORE"
-          echo "Perception: $PERCEPTION"
-          echo "Action:     $ACTION"
-          echo "UI:         $UI"
-          echo "Total:      $TOTAL"
+          echo "Core:       $CORE (expected: 30)"
+          echo "Perception: $PERCEPTION (expected: 7)"
+          echo "Action:     $ACTION (expected: 9)"
+          echo "UI:         $UI (expected: 3)"
+          echo "Runtime:    $RUNTIME (expected: 49)"
+          echo "Editor:     $EDITOR"
+          echo "Tests:      $TESTS"
 
-          if [ "$TOTAL" -lt 30 ]; then
-            echo "WARNING: Expected at least 30 scripts, found $TOTAL"
+          FAIL=0
+          if [ "$CORE" -lt 29 ]; then
+            echo "FAIL: Core scripts below minimum (29). Found $CORE"
+            FAIL=1
           fi
+          if [ "$PERCEPTION" -lt 7 ]; then
+            echo "FAIL: Perception scripts below minimum (7). Found $PERCEPTION"
+            FAIL=1
+          fi
+          if [ "$ACTION" -lt 9 ]; then
+            echo "FAIL: Action scripts below minimum (9). Found $ACTION"
+            FAIL=1
+          fi
+          if [ "$UI" -lt 3 ]; then
+            echo "FAIL: UI scripts below minimum (3). Found $UI"
+            FAIL=1
+          fi
+          if [ "$FAIL" -eq 1 ]; then
+            exit 1
+          fi
+          echo "OK: All component counts at or above expected minimum"
 
       - name: Check .meta file pairing
         run: |
@@ -133,6 +157,64 @@ jobs:
           fi
           echo "OK: No UdonSharp-incompatible patterns detected"
 
+      - name: Detect GC-heavy patterns in Update loops
+        run: |
+          echo "=== GC Allocation Pattern Check ==="
+          WARNINGS=0
+          while IFS= read -r cs_file; do
+            # Check for 'new T[' inside Update/FixedUpdate/LateUpdate methods
+            # Simple heuristic: look for 'new ' followed by '[' after void Update
+            IN_UPDATE=false
+            LINE_NUM=0
+            while IFS= read -r line; do
+              LINE_NUM=$((LINE_NUM + 1))
+              if echo "$line" | grep -qE '(void Update|void FixedUpdate|void LateUpdate)'; then
+                IN_UPDATE=true
+              fi
+              if [ "$IN_UPDATE" = true ]; then
+                if echo "$line" | grep -q 'new .*\['; then
+                  echo "WARNING: Possible GC allocation in update loop: $cs_file:$LINE_NUM"
+                  WARNINGS=$((WARNINGS + 1))
+                fi
+                # Rough brace tracking to exit method
+                if echo "$line" | grep -qE '^\s*\}' && [ "$LINE_NUM" -gt 5 ]; then
+                  IN_UPDATE=false
+                fi
+              fi
+            done < "$cs_file"
+          done < <(find Assets/QuantumDharma/Scripts -name '*.cs')
+
+          if [ "$WARNINGS" -gt 0 ]; then
+            echo "INFO: $WARNINGS potential GC allocation(s) in update loops"
+            echo "Review these to ensure arrays are pre-allocated in Start()"
+          else
+            echo "OK: No GC allocation patterns detected in update loops"
+          fi
+
+      - name: Validate SerializeField naming convention
+        run: |
+          echo "=== Naming Convention Check ==="
+          ERRORS=0
+          while IFS= read -r cs_file; do
+            # SerializeField private fields should start with underscore
+            while IFS= read -r match; do
+              if [ -n "$match" ]; then
+                # Extract field name: last word before the semicolon
+                FIELD=$(echo "$match" | grep -oP '\b[a-zA-Z_]\w*(?=\s*[;=])' | tail -1)
+                if [ -n "$FIELD" ] && ! echo "$FIELD" | grep -q '^_'; then
+                  echo "WARN: SerializeField without _ prefix: $FIELD in $cs_file"
+                  ERRORS=$((ERRORS + 1))
+                fi
+              fi
+            done < <(grep -n '\[SerializeField\]' "$cs_file" | head -200)
+          done < <(find Assets/QuantumDharma/Scripts -name '*.cs')
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "INFO: $ERRORS SerializeField(s) without underscore prefix"
+          else
+            echo "OK: All SerializeField names follow _camelCase convention"
+          fi
+
       - name: Check for prohibited files
         run: |
           echo "=== Prohibited File Check ==="
@@ -148,4 +230,20 @@ jobs:
             echo "WARNING: $FOUND potentially sensitive file(s) found"
           else
             echo "OK: No prohibited files detected"
+          fi
+
+      - name: Validate test coverage baseline
+        run: |
+          echo "=== Test Coverage Baseline ==="
+          TEST_FILES=$(find Assets/QuantumDharma/Tests -name '*Tests.cs' | wc -l)
+          TEST_METHODS=$(grep -r '\[Test\]' Assets/QuantumDharma/Tests/ | wc -l)
+
+          echo "Test files:   $TEST_FILES"
+          echo "Test methods: $TEST_METHODS"
+
+          if [ "$TEST_METHODS" -lt 90 ]; then
+            echo "WARNING: Test count ($TEST_METHODS) below baseline (90)"
+            echo "Consider adding more tests to maintain coverage"
+          else
+            echo "OK: Test count ($TEST_METHODS) meets baseline (90+)"
           fi

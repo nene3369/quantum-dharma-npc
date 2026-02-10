@@ -1,0 +1,54 @@
+# EditorConfig for Quantum Dharma NPC
+# https://editorconfig.org
+
+root = true
+
+# Default settings for all files
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# C# files
+[*.cs]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# C# naming conventions
+# PascalCase for public methods and properties
+# _camelCase for private fields with underscore prefix
+# camelCase for local variables and parameters
+
+# Unity meta files
+[*.meta]
+indent_style = space
+indent_size = 2
+
+# Unity YAML files (scenes, prefabs, etc.)
+[*.{unity,prefab,asset,mat,controller,anim}]
+indent_style = space
+indent_size = 2
+
+# JSON files (asmdef, package.json, etc.)
+[*.{json,asmdef}]
+indent_style = space
+indent_size = 4
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown
+[*.md]
+trim_trailing_whitespace = false
+
+# Shell scripts
+[*.sh]
+indent_style = space
+indent_size = 2
+end_of_line = lf
