@@ -215,6 +215,14 @@ UpperBodyIK ──hand reach──→ Animator bones (trust-based extension)
 | `FreeEnergyVisualizer.cs` | None | LineRenderer ring that pulses with prediction error |
 | `TrustVisualizer.cs` | None | MaterialPropertyBlock-driven color/glow reflecting trust state |
 
+#### Editor Tools (3)
+
+| Script | Role |
+|---|---|
+| `QuantumDharmaAutoWirer.cs` | 1-click auto-wire of all 165+ SerializeField component references |
+| `QuantumDharmaValidator.cs` | Validates refs, Animator params (22), blend shapes, humanoid bones, component presence |
+| `QuantumDharmaAnimatorBuilder.cs` | Generates AnimatorController with 4 layers (Base/Emotion/Mirror/Gesture), 22 parameters |
+
 ## Project Structure
 
 ```
@@ -270,10 +278,15 @@ Assets/
 │   │   │   ├── IdleWaypoints.cs
 │   │   │   ├── FacialExpressionController.cs
 │   │   │   └── UpperBodyIK.cs
-│   │   └── UI/                       # 3 scripts
-│   │       ├── DebugOverlay.cs
-│   │       ├── FreeEnergyVisualizer.cs
-│   │       └── TrustVisualizer.cs
+│   │   ├── UI/                       # 3 scripts
+│   │   │   ├── DebugOverlay.cs
+│   │   │   ├── FreeEnergyVisualizer.cs
+│   │   │   └── TrustVisualizer.cs
+│   │   └── Editor/                   # 3 editor tools
+│   │       ├── QuantumDharmaAutoWirer.cs
+│   │       ├── QuantumDharmaValidator.cs
+│   │       ├── QuantumDharmaAnimatorBuilder.cs
+│   │       └── QuantumDharma.Editor.asmdef
 │   ├── Tests/
 │   │   └── Editor/                   # NUnit test suite
 │   │       ├── FreeEnergyMathTests.cs
