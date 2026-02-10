@@ -2,7 +2,6 @@ using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
 using VRC.SDKBase;
-using VRC.Udon;
 
 /// <summary>
 /// World-space UI panel for selecting NPC personality archetypes at runtime.
@@ -105,19 +104,20 @@ public class ArchetypeSelectionUI : UdonSharpBehaviour
     {
         if (!_isVisible) return;
 
-        // Billboard
-        if (_billboardToPlayer && _panel != null)
+        // Billboard — rotate the Canvas transform (not Panel child)
+        // so that BoxCollider and visuals both face the player
+        if (_billboardToPlayer)
         {
             VRCPlayerApi localPlayer = Networking.LocalPlayer;
             if (localPlayer != null && localPlayer.IsValid())
             {
                 Vector3 playerHead = localPlayer.GetTrackingData(
                     VRCPlayerApi.TrackingDataType.Head).position;
-                Vector3 toPlayer = playerHead - _panel.transform.position;
+                Vector3 toPlayer = playerHead - transform.position;
                 toPlayer.y = 0f;
                 if (toPlayer.sqrMagnitude > 0.001f)
                 {
-                    _panel.transform.rotation =
+                    transform.rotation =
                         Quaternion.LookRotation(toPlayer, Vector3.up);
                 }
             }
