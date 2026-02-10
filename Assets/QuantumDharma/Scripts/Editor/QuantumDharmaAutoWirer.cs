@@ -54,6 +54,27 @@ public class QuantumDharmaAutoWirer : EditorWindow
             {
                 RunAutoWire();
             }
+
+            EditorGUILayout.Space(4);
+
+            if (GUILayout.Button("Auto-Map BlendShapes", GUILayout.Height(24)))
+            {
+                _log.Clear();
+                _wiredCount = 0;
+                _log.Add("=== BlendShape Auto-Mapping ===");
+                _wiredCount = AutoMapBlendShapes(_npcRoot, _log);
+                _log.Add("[DONE] " + _wiredCount + " blend shapes mapped");
+            }
+        }
+
+        EditorGUILayout.Space(4);
+        if (GUILayout.Button("Wire Peer NPCs (Scene-wide)", GUILayout.Height(24)))
+        {
+            _log.Clear();
+            _wiredCount = 0;
+            _log.Add("=== Multi-NPC Peer Wiring ===");
+            _wiredCount = WirePeerNPCs(_log);
+            _log.Add("[DONE] " + _wiredCount + " peer references wired");
         }
 
         if (_log.Count > 0)
@@ -285,5 +306,292 @@ public class QuantumDharmaAutoWirer : EditorWindow
         }
 
         return false;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // BlendShape Auto-Mapping
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Scans SkinnedMeshRenderer blend shapes for common naming patterns
+    /// (VRM, VRChat, generic) and auto-assigns indices to
+    /// FacialExpressionController fields.
+    /// </summary>
+    public static int AutoMapBlendShapes(GameObject npcRoot, List<string> log)
+    {
+        SkinnedMeshRenderer smr =
+            npcRoot.GetComponentInChildren<SkinnedMeshRenderer>(true);
+        if (smr == null || smr.sharedMesh == null)
+        {
+            if (log != null)
+                log.Add("[SKIP] No SkinnedMeshRenderer with mesh found");
+            return 0;
+        }
+
+        Mesh mesh = smr.sharedMesh;
+        int count = mesh.blendShapeCount;
+        if (count == 0)
+        {
+            if (log != null)
+                log.Add("[SKIP] Mesh has no blend shapes");
+            return 0;
+        }
+
+        // Build lowercase name -> index map
+        Dictionary<string, int> nameToIndex = new Dictionary<string, int>();
+        for (int i = 0; i < count; i++)
+        {
+            string bsName = mesh.GetBlendShapeName(i).ToLowerInvariant();
+            if (!nameToIndex.ContainsKey(bsName))
+            {
+                nameToIndex[bsName] = i;
+            }
+        }
+
+        // Pattern map: field name -> search patterns (checked in priority order)
+        string[][] fieldPatterns = new string[][]
+        {
+            // _blendJoy
+            new string[] { "_blendJoy",
+                "joy", "happy", "smile", "fcl_all_joy", "fcl_mth_joy",
+                "blendshape.joy", "blendshape.happy" },
+            // _blendSorrow
+            new string[] { "_blendSorrow",
+                "sorrow", "sad", "sadness", "fcl_all_sorrow",
+                "blendshape.sorrow", "blendshape.sad" },
+            // _blendAngry
+            new string[] { "_blendAngry",
+                "angry", "anger", "fcl_all_angry",
+                "blendshape.angry", "blendshape.anger" },
+            // _blendSurprise
+            new string[] { "_blendSurprise",
+                "surprise", "surprised", "fun", "fcl_all_surprised",
+                "fcl_all_fun", "blendshape.surprise", "blendshape.fun" },
+            // _blendFear
+            new string[] { "_blendFear",
+                "fear", "afraid", "scared", "fcl_all_fear",
+                "blendshape.fear" },
+            // _blendMouthOpen
+            new string[] { "_blendMouthOpen",
+                "vrc.v_aa", "a", "aa", "mouth_open", "mouthopen",
+                "fcl_mth_a", "mth_a", "blendshape.a",
+                "blendshape1.vrc.v_aa" },
+            // _blendMouthOh
+            new string[] { "_blendMouthOh",
+                "vrc.v_oh", "o", "oh", "mouth_o", "mouthoh",
+                "fcl_mth_o", "mth_o", "blendshape.o",
+                "blendshape1.vrc.v_oh" }
+        };
+
+        // Find FacialExpressionController
+        UdonSharpBehaviour[] behaviours =
+            npcRoot.GetComponentsInChildren<UdonSharpBehaviour>(true);
+        UdonSharpBehaviour fec = null;
+        foreach (UdonSharpBehaviour usb in behaviours)
+        {
+            if (usb.GetType().Name == "FacialExpressionController")
+            {
+                fec = usb;
+                break;
+            }
+        }
+
+        if (fec == null)
+        {
+            if (log != null)
+                log.Add("[SKIP] FacialExpressionController not found");
+            return 0;
+        }
+
+        SerializedObject so = new SerializedObject(fec);
+        int mapped = 0;
+
+        foreach (string[] pattern in fieldPatterns)
+        {
+            string fieldName = pattern[0];
+            SerializedProperty prop = so.FindProperty(fieldName);
+            if (prop == null) continue;
+
+            // Skip if already set to a valid index
+            if (prop.intValue >= 0 && prop.intValue < count)
+            {
+                if (log != null)
+                    log.Add("[KEEP] " + fieldName + " = " + prop.intValue +
+                            " (" + mesh.GetBlendShapeName(prop.intValue) + ")");
+                continue;
+            }
+
+            // Search patterns
+            int foundIndex = -1;
+            string foundName = "";
+            for (int p = 1; p < pattern.Length; p++)
+            {
+                string search = pattern[p].ToLowerInvariant();
+
+                // Exact match first
+                if (nameToIndex.ContainsKey(search))
+                {
+                    foundIndex = nameToIndex[search];
+                    foundName = search;
+                    break;
+                }
+
+                // Substring / contains match
+                foreach (KeyValuePair<string, int> kvp in nameToIndex)
+                {
+                    if (kvp.Key.Contains(search))
+                    {
+                        foundIndex = kvp.Value;
+                        foundName = kvp.Key;
+                        break;
+                    }
+                }
+                if (foundIndex >= 0) break;
+            }
+
+            if (foundIndex >= 0)
+            {
+                prop.intValue = foundIndex;
+                so.ApplyModifiedProperties();
+                mapped++;
+                if (log != null)
+                    log.Add("[MAP] " + fieldName + " = " + foundIndex +
+                            " (" + foundName + ")");
+            }
+            else
+            {
+                if (log != null)
+                    log.Add("[MISS] " + fieldName + " - no matching blend shape");
+            }
+        }
+
+        // Also wire _faceMesh reference if not set
+        SerializedProperty faceMeshProp = so.FindProperty("_faceMesh");
+        if (faceMeshProp != null && faceMeshProp.objectReferenceValue == null)
+        {
+            faceMeshProp.objectReferenceValue = smr;
+            so.ApplyModifiedProperties();
+            mapped++;
+            if (log != null)
+                log.Add("[MAP] _faceMesh -> " + smr.name);
+        }
+
+        return mapped;
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // Multi-NPC Peer Wiring
+    // ══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Finds all Quantum Dharma NPCs in the scene and auto-wires
+    /// CollectiveMemory._peerMemory and MultiNPCRelay._peer references.
+    /// </summary>
+    public static int WirePeerNPCs(List<string> log)
+    {
+        // Find all root NPCs by looking for QuantumDharmaManager
+        UdonSharpBehaviour[] allBehaviours =
+            UnityEngine.Object.FindObjectsOfType<UdonSharpBehaviour>();
+
+        List<GameObject> npcRoots = new List<GameObject>();
+        foreach (UdonSharpBehaviour usb in allBehaviours)
+        {
+            if (usb.GetType().Name == "QuantumDharmaManager")
+            {
+                npcRoots.Add(usb.gameObject);
+            }
+        }
+
+        if (npcRoots.Count < 2)
+        {
+            if (log != null)
+                log.Add("[INFO] Found " + npcRoots.Count +
+                         " NPC(s) in scene. Need 2+ for peer wiring.");
+            return 0;
+        }
+
+        if (log != null)
+            log.Add("[INFO] Found " + npcRoots.Count + " NPCs in scene");
+
+        int wired = 0;
+
+        // For each NPC, wire peers
+        for (int i = 0; i < npcRoots.Count; i++)
+        {
+            GameObject npc = npcRoots[i];
+            UdonSharpBehaviour[] components =
+                npc.GetComponentsInChildren<UdonSharpBehaviour>(true);
+
+            // Build peer list (all other NPCs, up to 4)
+            List<GameObject> peers = new List<GameObject>();
+            for (int j = 0; j < npcRoots.Count && peers.Count < 4; j++)
+            {
+                if (j != i) peers.Add(npcRoots[j]);
+            }
+
+            foreach (UdonSharpBehaviour usb in components)
+            {
+                string typeName = usb.GetType().Name;
+
+                if (typeName == "CollectiveMemory")
+                {
+                    wired += WirePeerSlots(usb, peers,
+                        "SessionMemory", "_localMemory",
+                        new string[] { "_peerMemory0", "_peerMemory1",
+                                       "_peerMemory2", "_peerMemory3" },
+                        npc.name, log);
+                }
+                else if (typeName == "MultiNPCRelay")
+                {
+                    wired += WirePeerSlots(usb, peers,
+                        "MultiNPCRelay", null,
+                        new string[] { "_peer0", "_peer1",
+                                       "_peer2", "_peer3" },
+                        npc.name, log);
+                }
+            }
+        }
+
+        return wired;
+    }
+
+    private static int WirePeerSlots(UdonSharpBehaviour usb,
+        List<GameObject> peers, string peerTypeName, string skipFieldName,
+        string[] slotFields, string npcName, List<string> log)
+    {
+        SerializedObject so = new SerializedObject(usb);
+        int wired = 0;
+
+        for (int p = 0; p < slotFields.Length; p++)
+        {
+            SerializedProperty prop = so.FindProperty(slotFields[p]);
+            if (prop == null) continue;
+
+            // Skip already assigned
+            if (prop.objectReferenceValue != null) continue;
+
+            if (p >= peers.Count) break;
+
+            // Find the target component on the peer NPC
+            UdonSharpBehaviour[] peerComponents =
+                peers[p].GetComponentsInChildren<UdonSharpBehaviour>(true);
+
+            foreach (UdonSharpBehaviour peerComp in peerComponents)
+            {
+                if (peerComp.GetType().Name == peerTypeName)
+                {
+                    prop.objectReferenceValue = peerComp;
+                    so.ApplyModifiedProperties();
+                    wired++;
+                    if (log != null)
+                        log.Add("[PEER] " + npcName + "." +
+                                usb.GetType().Name + "." + slotFields[p] +
+                                " -> " + peers[p].name);
+                    break;
+                }
+            }
+        }
+
+        return wired;
     }
 }

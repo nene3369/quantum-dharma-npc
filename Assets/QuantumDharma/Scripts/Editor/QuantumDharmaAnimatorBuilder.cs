@@ -105,6 +105,116 @@ public class QuantumDharmaAnimatorBuilder : EditorWindow
             label, clip, typeof(AnimationClip), false);
     }
 
+    /// <summary>
+    /// Generates an AnimatorController at the given path with all 22 parameters
+    /// and 4 layers but no animation clips assigned. Returns the controller.
+    /// Can be called programmatically from other editor tools.
+    /// </summary>
+    public static RuntimeAnimatorController GenerateDefaultController(string path)
+    {
+        // Ensure directory exists
+        string directory = System.IO.Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory) && !AssetDatabase.IsValidFolder(directory))
+        {
+            string[] parts = directory.Replace("\\", "/").Split('/');
+            string current = parts[0];
+            for (int i = 1; i < parts.Length; i++)
+            {
+                string next = current + "/" + parts[i];
+                if (!AssetDatabase.IsValidFolder(next))
+                {
+                    AssetDatabase.CreateFolder(current, parts[i]);
+                }
+                current = next;
+            }
+        }
+
+        AnimatorController ctrl =
+            AnimatorController.CreateAnimatorControllerAtPath(path);
+
+        // Float parameters (14)
+        string[] fp = new string[]
+        {
+            "EmotionCalm", "EmotionCurious", "EmotionWary",
+            "EmotionWarm", "EmotionAfraid",
+            "BreathAmplitude", "NpcState", "FreeEnergy",
+            "Trust", "MotorSpeed",
+            "MirrorCrouch", "MirrorLean",
+            "GestureIntensity", "Blink"
+        };
+        foreach (string p in fp)
+            ctrl.AddParameter(p, AnimatorControllerParameterType.Float);
+
+        // Trigger parameters (8)
+        string[] tp = new string[]
+        {
+            "GestureWave", "GestureBow", "GestureHeadTilt", "GestureNod",
+            "GestureBeckon", "GestureFlinch", "GestureShake", "GestureRetreat"
+        };
+        foreach (string p in tp)
+            ctrl.AddParameter(p, AnimatorControllerParameterType.Trigger);
+
+        // Layer 0: Base
+        AnimatorStateMachine baseSM = ctrl.layers[0].stateMachine;
+        baseSM.name = "Base";
+        AnimatorState idle = baseSM.AddState("Idle", new Vector3(300, 0, 0));
+        baseSM.defaultState = idle;
+        AnimatorState walk = baseSM.AddState("Walk", new Vector3(300, 80, 0));
+        walk.speedParameterActive = true;
+        walk.speedParameter = "MotorSpeed";
+        AnimatorStateTransition tw = idle.AddTransition(walk);
+        tw.AddCondition(AnimatorConditionMode.Greater, 0.1f, "MotorSpeed");
+        tw.hasExitTime = false; tw.duration = 0.2f;
+        AnimatorStateTransition ti = walk.AddTransition(idle);
+        ti.AddCondition(AnimatorConditionMode.Less, 0.05f, "MotorSpeed");
+        ti.hasExitTime = false; ti.duration = 0.2f;
+
+        // Layer 1: Emotion (Additive)
+        ctrl.AddLayer("Emotion");
+        AnimatorControllerLayer[] layers = ctrl.layers;
+        layers[1].blendingMode = AnimatorLayerBlendingMode.Additive;
+        layers[1].defaultWeight = 1f;
+        ctrl.layers = layers;
+
+        // Layer 2: Mirror (Override, weight 0)
+        ctrl.AddLayer("Mirror");
+        layers = ctrl.layers;
+        layers[2].blendingMode = AnimatorLayerBlendingMode.Override;
+        layers[2].defaultWeight = 0f;
+        ctrl.layers = layers;
+        layers[2].stateMachine.AddState("MirrorIdle", new Vector3(300, 0, 0));
+
+        // Layer 3: Gesture (Override)
+        ctrl.AddLayer("Gesture");
+        layers = ctrl.layers;
+        layers[3].blendingMode = AnimatorLayerBlendingMode.Override;
+        layers[3].defaultWeight = 1f;
+        ctrl.layers = layers;
+        AnimatorStateMachine gSM = layers[3].stateMachine;
+        AnimatorState gIdle = gSM.AddState("GestureIdle", new Vector3(300, 0, 0));
+        gSM.defaultState = gIdle;
+
+        string[] gNames = new string[]
+        {
+            "Wave", "Bow", "HeadTilt", "Nod",
+            "Beckon", "Flinch", "Shake", "Retreat"
+        };
+        for (int i = 0; i < gNames.Length; i++)
+        {
+            AnimatorState gs = gSM.AddState(gNames[i], new Vector3(550, i * 60, 0));
+            AnimatorStateTransition tg = gIdle.AddTransition(gs);
+            tg.AddCondition(AnimatorConditionMode.If, 0f, "Gesture" + gNames[i]);
+            tg.hasExitTime = false; tg.duration = 0.1f;
+            AnimatorStateTransition tb = gs.AddTransition(gIdle);
+            tb.hasExitTime = true; tb.exitTime = 0.9f; tb.duration = 0.2f;
+        }
+
+        EditorUtility.SetDirty(ctrl);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        return ctrl;
+    }
+
     private void GenerateController()
     {
         // Ensure directory exists

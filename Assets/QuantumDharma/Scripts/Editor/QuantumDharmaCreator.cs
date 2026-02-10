@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 using UnityEngine.UI;
 using UdonSharp;
@@ -18,6 +19,9 @@ public class QuantumDharmaCreator : EditorWindow
     private int _waypointCount = 4;
     private bool _createDebugUI = true;
     private bool _autoWire = true;
+    private bool _generateAnimator = true;
+    private bool _autoMapBlendShapes = true;
+    private bool _runValidation = true;
     private Vector2 _scrollPos;
     private readonly List<string> _log = new List<string>();
 
@@ -102,6 +106,9 @@ public class QuantumDharmaCreator : EditorWindow
         _waypointCount = EditorGUILayout.IntSlider("Waypoints", _waypointCount, 2, 8);
         _createDebugUI = EditorGUILayout.Toggle("Create Debug UI", _createDebugUI);
         _autoWire = EditorGUILayout.Toggle("Auto-Wire After Creation", _autoWire);
+        _generateAnimator = EditorGUILayout.Toggle("Generate Animator Controller", _generateAnimator);
+        _autoMapBlendShapes = EditorGUILayout.Toggle("Auto-Map BlendShapes", _autoMapBlendShapes);
+        _runValidation = EditorGUILayout.Toggle("Run Validation After", _runValidation);
 
         EditorGUILayout.Space(8);
 
@@ -253,18 +260,66 @@ public class QuantumDharmaCreator : EditorWindow
             _log.Add("[AUTO-WIRE] " + wired + " references connected");
         }
 
-        // ── 8. Select the created NPC ──
+        // ── 8. Generate Animator Controller ──
+        if (_generateAnimator)
+        {
+            _log.Add("---");
+            _log.Add("[ANIMATOR] Generating AnimatorController...");
+            string controllerPath =
+                "Assets/QuantumDharma/Animations/" + _npcName + ".controller";
+            RuntimeAnimatorController rac =
+                QuantumDharmaAnimatorBuilder.GenerateDefaultController(controllerPath);
+            if (rac != null)
+            {
+                animator.runtimeAnimatorController = rac;
+                _log.Add("[ANIMATOR] Created at: " + controllerPath);
+                _log.Add("[ANIMATOR] Assigned to Animator component");
+            }
+        }
+
+        // ── 9. Auto-map blend shapes ──
+        if (_autoMapBlendShapes)
+        {
+            _log.Add("---");
+            _log.Add("[BLENDSHAPE] Scanning for blend shapes...");
+            int mapped = QuantumDharmaAutoWirer.AutoMapBlendShapes(root, _log);
+            _log.Add("[BLENDSHAPE] " + mapped + " indices mapped");
+        }
+
+        // ── 10. Select the created NPC ──
         Selection.activeGameObject = root;
         Undo.CollapseUndoOperations(undoGroup);
         Undo.SetCurrentGroupName("Create Quantum Dharma NPC");
 
+        // ── 11. Run validation ──
+        if (_runValidation)
+        {
+            _log.Add("---");
+            _log.Add("[VALIDATE] Running setup validation...");
+            int errors = 0;
+            int warnings = 0;
+            RunInlineValidation(root, _log, ref errors, ref warnings);
+            _log.Add("[VALIDATE] " + errors + " errors, " + warnings + " warnings");
+        }
+
         _log.Add("===");
-        _log.Add("[DONE] NPC created. Next steps:");
-        _log.Add("  1. Assign avatar model as child of " + _npcName);
-        _log.Add("  2. Run: Quantum Dharma > Create Animator Controller");
-        _log.Add("  3. Assign Animator Controller to Animator component");
-        _log.Add("  4. Set blend shape indices on FacialExpressionController");
-        _log.Add("  5. Run: Quantum Dharma > Validate NPC Setup");
+        _log.Add("[DONE] NPC created and configured!");
+
+        // Show remaining manual steps (if any)
+        List<string> remaining = new List<string>();
+        remaining.Add("  - Assign avatar model as child of " + _npcName);
+        if (!_generateAnimator)
+            remaining.Add("  - Create and assign Animator Controller");
+        if (!_autoMapBlendShapes)
+            remaining.Add("  - Set blend shape indices on FacialExpressionController");
+        remaining.Add("  - Assign AnimationClips (idle, walk, gestures)");
+
+        if (remaining.Count > 0)
+        {
+            _log.Add("Remaining manual steps:");
+            foreach (string step in remaining)
+                _log.Add(step);
+        }
 
         Debug.Log("[QuantumDharma] NPC '" + _npcName + "' created with " +
                   addedCount + " components");
@@ -575,6 +630,82 @@ public class QuantumDharmaCreator : EditorWindow
         if (comp != null && !map.ContainsKey(typeof(T)))
         {
             map[typeof(T)] = comp;
+        }
+    }
+
+    /// <summary>
+    /// Inline validation: checks component presence and null references.
+    /// Lighter than QuantumDharmaValidator (no Animator/bone checks since
+    /// those require avatar model which isn't present at creation time).
+    /// </summary>
+    private void RunInlineValidation(GameObject root, List<string> log,
+        ref int errors, ref int warnings)
+    {
+        UdonSharpBehaviour[] behaviours =
+            root.GetComponentsInChildren<UdonSharpBehaviour>(true);
+
+        // Check component count
+        HashSet<string> found = new HashSet<string>();
+        foreach (UdonSharpBehaviour usb in behaviours)
+        {
+            found.Add(usb.GetType().Name);
+        }
+
+        int missing = 0;
+        foreach (string name in ComponentNames)
+        {
+            if (!found.Contains(name))
+            {
+                log.Add("[V-ERR] Missing: " + name);
+                missing++;
+                errors++;
+            }
+        }
+
+        if (missing == 0)
+        {
+            log.Add("[V-OK] All " + ComponentNames.Length + " components present");
+        }
+
+        // Check null references on critical components
+        string[] criticalTypes = new string[]
+        {
+            "QuantumDharmaManager", "FreeEnergyCalculator", "BeliefState",
+            "QuantumDharmaNPC", "PlayerSensor", "NPCMotor"
+        };
+
+        foreach (UdonSharpBehaviour usb in behaviours)
+        {
+            string typeName = usb.GetType().Name;
+            bool isCritical = false;
+            foreach (string ct in criticalTypes)
+            {
+                if (typeName == ct) { isCritical = true; break; }
+            }
+            if (!isCritical) continue;
+
+            FieldInfo[] fields = usb.GetType().GetFields(
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
+            foreach (FieldInfo field in fields)
+            {
+                if (field.GetCustomAttribute<SerializeField>() == null &&
+                    !field.IsPublic)
+                    continue;
+
+                if (!typeof(Component).IsAssignableFrom(field.FieldType))
+                    continue;
+
+                if (IsPeerField(typeName, field.Name))
+                    continue;
+
+                object val = field.GetValue(usb);
+                if (val == null || val.Equals(null))
+                {
+                    log.Add("[V-WARN] " + typeName + "." + field.Name + " is null");
+                    warnings++;
+                }
+            }
         }
     }
 
