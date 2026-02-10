@@ -39,8 +39,6 @@ public class SpeechSystemMathTests
     /// </summary>
     private static int DetermineEmotion(int npcState, float normalizedFE, float trust, int intent)
     {
-        const int STATE_SILENCE  = 0;
-        const int STATE_APPROACH = 2;
         const int STATE_RETREAT  = 3;
         const int STATE_GREET    = 6;
         const int STATE_PLAY     = 7;

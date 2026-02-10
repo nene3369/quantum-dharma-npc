@@ -66,12 +66,6 @@ public class EmotionalContagion : UdonSharpBehaviour
     // Anxiety / warmth dynamics
     // ================================================================
     [Header("Anxiety Dynamics")]
-    [Tooltip("Anxiety increase rate per tick from erratic crowd mood")]
-    [SerializeField] private float _anxietyGrowthRate = 0.04f;
-
-    [Tooltip("Anxiety decrease rate per tick from calm crowd")]
-    [SerializeField] private float _anxietyDecayRate = 0.02f;
-
     [Tooltip("Natural anxiety decay when no players present")]
     [SerializeField] private float _baselineDecayRate = 0.01f;
 

@@ -89,7 +89,6 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private Image _stateBackground;
 
     [Header("Settings")]
-    [SerializeField] private float _heightOffset = 2.2f;
     [SerializeField] private float _updateInterval = 0.2f;
     [SerializeField] private bool _startVisible = false;
 

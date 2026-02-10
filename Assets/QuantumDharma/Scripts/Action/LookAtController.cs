@@ -39,12 +39,9 @@ public class LookAtController : UdonSharpBehaviour
     [SerializeField] private float _eyeHeightOffset = 1.5f;
     [Tooltip("How fast gaze weight eases in/out (seconds)")]
     [SerializeField] private float _weightTransitionTime = 0.4f;
-    [Tooltip("Maximum IK look-at weight for body/head/eyes")]
-    [SerializeField] private float _maxBodyWeight = 0.15f;
+    [Tooltip("Maximum IK look-at weight for head/eyes")]
     [SerializeField] private float _maxHeadWeight = 0.7f;
     [SerializeField] private float _maxEyesWeight = 0.9f;
-    [Tooltip("Maximum angle from forward before gaze weight is reduced (degrees)")]
-    [SerializeField] private float _maxGazeAngle = 90f;
 
     // ================================================================
     // Idle drift settings (Silence state)

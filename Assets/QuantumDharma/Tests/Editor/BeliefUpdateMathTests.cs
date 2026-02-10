@@ -403,7 +403,6 @@ public class BeliefUpdateMathTests
     public void Kindness_AccumulatesAboveThreshold()
     {
         float kindness = 0f;
-        float threshold = 0.3f;
         float rate = 1.0f;
         float friendlyP = 0.5f; // above threshold
         float tickInterval = 0.5f;
