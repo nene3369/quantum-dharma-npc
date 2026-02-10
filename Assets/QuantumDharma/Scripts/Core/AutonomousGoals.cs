@@ -223,7 +223,7 @@ public class AutonomousGoals : UdonSharpBehaviour
             if (_needs[i] < _activationThreshold) continue;
 
             // Pressure scales from 0 at threshold to 1 at max
-            float pressure = (_needs[i] - _activationThreshold) / (1f - _activationThreshold);
+            float pressure = (_needs[i] - _activationThreshold) / Mathf.Max(1f - _activationThreshold, 0.001f);
 
             // Urgent needs get extra pressure
             if (_needs[i] >= _urgentThreshold)

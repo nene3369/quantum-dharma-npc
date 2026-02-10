@@ -191,7 +191,7 @@ public class ImitationLearning : UdonSharpBehaviour
         // Track approach speed (how fast they close distance)
         if (distance < _prevDistance)
         {
-            float closingSpeed = (_prevDistance - distance) / _observeInterval;
+            float closingSpeed = (_prevDistance - distance) / Mathf.Max(_observeInterval, 0.01f);
             // EMA of approach speed
             if (_currentApproachSpeed < 0.01f)
             {
