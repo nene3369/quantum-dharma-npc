@@ -1,17 +1,12 @@
 {
-    "name": "QuantumDharma.Editor",
+    "name": "QuantumDharma.Runtime",
     "rootNamespace": "",
     "references": [
-        "QuantumDharma.Runtime",
         "UdonSharp.Runtime",
-        "UdonSharp.Editor",
         "VRC.Udon",
-        "VRC.SDKBase",
-        "VRC.Udon.Serialization.OdinSerializer"
+        "VRC.SDKBase"
     ],
-    "includePlatforms": [
-        "Editor"
-    ],
+    "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
