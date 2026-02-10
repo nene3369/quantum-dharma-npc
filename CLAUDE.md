@@ -215,10 +215,11 @@ UpperBodyIK ──hand reach──→ Animator bones (trust-based extension)
 | `FreeEnergyVisualizer.cs` | None | LineRenderer ring that pulses with prediction error |
 | `TrustVisualizer.cs` | None | MaterialPropertyBlock-driven color/glow reflecting trust state |
 
-#### Editor Tools (3)
+#### Editor Tools (4)
 
 | Script | Role |
 |---|---|
+| `QuantumDharmaCreator.cs` | 1-click full NPC factory: 49 components + hierarchy + waypoints + UI + auto-wire |
 | `QuantumDharmaAutoWirer.cs` | 1-click auto-wire of all 165+ SerializeField component references |
 | `QuantumDharmaValidator.cs` | Validates refs, Animator params (22), blend shapes, humanoid bones, component presence |
 | `QuantumDharmaAnimatorBuilder.cs` | Generates AnimatorController with 4 layers (Base/Emotion/Mirror/Gesture), 22 parameters |
@@ -282,7 +283,8 @@ Assets/
 │   │   │   ├── DebugOverlay.cs
 │   │   │   ├── FreeEnergyVisualizer.cs
 │   │   │   └── TrustVisualizer.cs
-│   │   └── Editor/                   # 3 editor tools
+│   │   └── Editor/                   # 4 editor tools
+│   │       ├── QuantumDharmaCreator.cs
 │   │       ├── QuantumDharmaAutoWirer.cs
 │   │       ├── QuantumDharmaValidator.cs
 │   │       ├── QuantumDharmaAnimatorBuilder.cs
