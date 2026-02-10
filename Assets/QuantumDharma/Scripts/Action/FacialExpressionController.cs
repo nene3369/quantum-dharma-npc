@@ -117,6 +117,19 @@ public class FacialExpressionController : UdonSharpBehaviour
 
     private void Start()
     {
+        // Validate blend shape indices against mesh bounds
+        if (_faceMesh != null && _faceMesh.sharedMesh != null)
+        {
+            int count = _faceMesh.sharedMesh.blendShapeCount;
+            if (_blendJoy >= count) _blendJoy = -1;
+            if (_blendSorrow >= count) _blendSorrow = -1;
+            if (_blendAngry >= count) _blendAngry = -1;
+            if (_blendSurprise >= count) _blendSurprise = -1;
+            if (_blendFear >= count) _blendFear = -1;
+            if (_blendMouthOpen >= count) _blendMouthOpen = -1;
+            if (_blendMouthOh >= count) _blendMouthOh = -1;
+        }
+
         _currentJoy = 0f;
         _currentSorrow = 0f;
         _currentAngry = 0f;
@@ -143,6 +156,17 @@ public class FacialExpressionController : UdonSharpBehaviour
     private void Update()
     {
         if (_faceMesh == null) return;
+
+        // Skip work when no expressions are active and NPC is not speaking
+        bool speaking = _npc != null && _npc.IsSpeaking();
+        if (!speaking && _currentJoy < 0.01f && _currentSorrow < 0.01f &&
+            _currentAngry < 0.01f && _currentSurprise < 0.01f && _currentFear < 0.01f &&
+            _currentMouthOpen < 0.01f &&
+            _targetJoy < 0.01f && _targetSorrow < 0.01f &&
+            _targetAngry < 0.01f && _targetSurprise < 0.01f && _targetFear < 0.01f)
+        {
+            return;
+        }
 
         float dt = Time.deltaTime;
 

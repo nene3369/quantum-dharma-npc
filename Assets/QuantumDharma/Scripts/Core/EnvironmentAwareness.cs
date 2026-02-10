@@ -71,8 +71,8 @@ public class EnvironmentAwareness : UdonSharpBehaviour
     [SerializeField] private int _obstacleRayCount = 5;
     [Tooltip("Fan angle spread (degrees)")]
     [SerializeField] private float _obstacleFanAngle = 60f;
-    [Tooltip("Layers to detect as obstacles")]
-    [SerializeField] private LayerMask _obstacleLayerMask = ~0;
+    [Tooltip("Layers to detect as obstacles (configure to exclude players/triggers)")]
+    [SerializeField] private LayerMask _obstacleLayerMask = 1; // Default layer only
     [Tooltip("Height offset for ray origin above NPC pivot")]
     [SerializeField] private float _rayOriginHeight = 0.5f;
 
@@ -350,6 +350,6 @@ public class EnvironmentAwareness : UdonSharpBehaviour
         if (!_hasGroundAhead) return 0f;
         if (!_hasObstacleAhead) return 1f;
         // Scale from 0 (touching) to 1 (at max distance)
-        return _nearestObstacleDistance / _obstacleCheckDistance;
+        return _nearestObstacleDistance / Mathf.Max(_obstacleCheckDistance, 0.01f);
     }
 }

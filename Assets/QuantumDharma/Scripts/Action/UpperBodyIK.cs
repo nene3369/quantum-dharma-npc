@@ -134,6 +134,20 @@ public class UpperBodyIK : UdonSharpBehaviour
     {
         if (!_bonesFound || _animator == null) return;
 
+        // Skip bone work when NPC has no focus player and IK values are at rest
+        if (_manager != null)
+        {
+            VRCPlayerApi focus = _manager.GetFocusPlayer();
+            if ((focus == null || !focus.IsValid()) &&
+                Mathf.Abs(_currentLean) < 0.01f && _currentReach < 0.01f)
+            {
+                // Still advance breathing phase to avoid discontinuity on resume
+                _breathPhase += Time.deltaTime * _breathFrequency * 2f * Mathf.PI;
+                if (_breathPhase > 100f) _breathPhase -= 100f;
+                return;
+            }
+        }
+
         float dt = Time.deltaTime;
 
         UpdateTargets();
@@ -208,7 +222,7 @@ public class UpperBodyIK : UdonSharpBehaviour
             {
                 // Reach amount increases as player gets closer and trust is higher
                 float distFactor = 1f - (focusDistance / _reachMaxDistance);
-                float trustFactor = (trust - _reachTrustThreshold) / (1f - _reachTrustThreshold);
+                float trustFactor = (trust - _reachTrustThreshold) / Mathf.Max(1f - _reachTrustThreshold, 0.001f);
                 _targetReach = distFactor * trustFactor;
             }
         }
