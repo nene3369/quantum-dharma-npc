@@ -370,7 +370,7 @@ public class DebugOverlay : UdonSharpBehaviour
             if (_npc != null)
             {
                 string utt = _npc.GetCurrentUtterance();
-                if (utt.Length > 0)
+                if (utt != null && utt.Length > 0)
                 {
                     details += "\n\"" + utt + "\"";
                 }
@@ -387,7 +387,7 @@ public class DebugOverlay : UdonSharpBehaviour
                 if (fp != null && fp.IsValid())
                 {
                     string memDebug = _sessionMemory.GetMemoryDebugString(fp.playerId);
-                    if (memDebug.Length > 0)
+                    if (memDebug != null && memDebug.Length > 0)
                     {
                         memLine += " | " + memDebug;
                     }
@@ -514,7 +514,7 @@ public class DebugOverlay : UdonSharpBehaviour
                 {
                     details += "\nDreamNarr:" + _dreamNarrative.GetToneName(tone);
                     string narrText = _dreamNarrative.GetLastNarrativeText();
-                    if (narrText.Length > 0)
+                    if (narrText != null && narrText.Length > 0)
                     {
                         details += " \"" + narrText + "\"";
                     }
@@ -661,7 +661,7 @@ public class DebugOverlay : UdonSharpBehaviour
                 details += "\nStories:" + _oralHistory.GetStoryCount().ToString();
                 if (_oralHistory.HasStoryToTell()) details += " [Ready]";
                 string lastStory = _oralHistory.GetLastStoryText();
-                if (lastStory.Length > 0) details += " \"" + lastStory + "\"";
+                if (lastStory != null && lastStory.Length > 0) details += " \"" + lastStory + "\"";
             }
 
             // Name giving line
@@ -713,9 +713,10 @@ public class DebugOverlay : UdonSharpBehaviour
             {
                 if (_farewellBehavior.IsActive())
                 {
+                    string fwText = _farewellBehavior.GetLastFarewellText();
                     details += "\nFarewell:" +
-                        _farewellBehavior.GetFarewellTypeName(_farewellBehavior.GetActiveFarewellType()) +
-                        " \"" + _farewellBehavior.GetLastFarewellText() + "\"";
+                        _farewellBehavior.GetFarewellTypeName(_farewellBehavior.GetActiveFarewellType());
+                    if (fwText != null && fwText.Length > 0) details += " \"" + fwText + "\"";
                 }
             }
 

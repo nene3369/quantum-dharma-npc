@@ -68,9 +68,11 @@ public class ContextualUtterance : UdonSharpBehaviour
     [SerializeField] private float _displayDuration = 5f;
 
     // ================================================================
-    // Utterance pools (parallel arrays per situation)
+    // Utterance pools (flat array: situationType * POOL_SIZE + index)
     // ================================================================
-    private string[][] _situationTexts;
+    private const int SIT_COUNT = 8;
+    private const int POOL_SIZE = 8;
+    private string[] _situationTexts;
     private int[] _situationPoolSizes;
 
     // ================================================================
@@ -122,92 +124,78 @@ public class ContextualUtterance : UdonSharpBehaviour
 
     private void InitializeUtterancePools()
     {
-        // 8 situation types (index 0 = NONE, unused)
-        _situationTexts = new string[8][];
-        _situationPoolSizes = new int[8];
+        // Flat array: situationType * POOL_SIZE + index (UdonSharp-safe)
+        _situationTexts = new string[SIT_COUNT * POOL_SIZE];
+        _situationPoolSizes = new int[SIT_COUNT];
+        for (int i = 0; i < _situationTexts.Length; i++) _situationTexts[i] = "";
 
         // SIT_NONE (0) — empty
-        _situationTexts[SIT_NONE] = new string[0];
         _situationPoolSizes[SIT_NONE] = 0;
 
         // SIT_FIRST_MEETING (1)
-        _situationTexts[SIT_FIRST_MEETING] = new string[]
-        {
-            "はじめまして",
-            "Hello",
-            "...誰?",
-            "Who...?"
-        };
+        int b = SIT_FIRST_MEETING * POOL_SIZE;
+        _situationTexts[b + 0] = "はじめまして";
+        _situationTexts[b + 1] = "Hello";
+        _situationTexts[b + 2] = "...誰?";
+        _situationTexts[b + 3] = "Who...?";
         _situationPoolSizes[SIT_FIRST_MEETING] = 4;
 
         // SIT_RE_ENCOUNTER (2)
-        _situationTexts[SIT_RE_ENCOUNTER] = new string[]
-        {
-            "また会えた",
-            "We meet again",
-            "戻ってきた...",
-            "You returned..."
-        };
+        b = SIT_RE_ENCOUNTER * POOL_SIZE;
+        _situationTexts[b + 0] = "また会えた";
+        _situationTexts[b + 1] = "We meet again";
+        _situationTexts[b + 2] = "戻ってきた...";
+        _situationTexts[b + 3] = "You returned...";
         _situationPoolSizes[SIT_RE_ENCOUNTER] = 4;
 
         // SIT_FRIEND_RETURN (3)
-        _situationTexts[SIT_FRIEND_RETURN] = new string[]
-        {
-            "おかえり",
-            "Welcome back",
-            "会いたかった",
-            "I missed you",
-            "嬉しい...",
-            "I'm glad..."
-        };
+        b = SIT_FRIEND_RETURN * POOL_SIZE;
+        _situationTexts[b + 0] = "おかえり";
+        _situationTexts[b + 1] = "Welcome back";
+        _situationTexts[b + 2] = "会いたかった";
+        _situationTexts[b + 3] = "I missed you";
+        _situationTexts[b + 4] = "嬉しい...";
+        _situationTexts[b + 5] = "I'm glad...";
         _situationPoolSizes[SIT_FRIEND_RETURN] = 6;
 
         // SIT_LONG_PRESENCE (4)
-        _situationTexts[SIT_LONG_PRESENCE] = new string[]
-        {
-            "ずっといてくれる",
-            "You stayed...",
-            "一緒にいる",
-            "Together...",
-            "ありがたい",
-            "Grateful..."
-        };
+        b = SIT_LONG_PRESENCE * POOL_SIZE;
+        _situationTexts[b + 0] = "ずっといてくれる";
+        _situationTexts[b + 1] = "You stayed...";
+        _situationTexts[b + 2] = "一緒にいる";
+        _situationTexts[b + 3] = "Together...";
+        _situationTexts[b + 4] = "ありがたい";
+        _situationTexts[b + 5] = "Grateful...";
         _situationPoolSizes[SIT_LONG_PRESENCE] = 6;
 
         // SIT_DREAM_WAKE (5)
-        _situationTexts[SIT_DREAM_WAKE] = new string[]
-        {
-            "...ん?",
-            "Hmm...?",
-            "目が覚めた...",
-            "Waking up...",
-            "...あ",
-            "Oh..."
-        };
+        b = SIT_DREAM_WAKE * POOL_SIZE;
+        _situationTexts[b + 0] = "...ん?";
+        _situationTexts[b + 1] = "Hmm...?";
+        _situationTexts[b + 2] = "目が覚めた...";
+        _situationTexts[b + 3] = "Waking up...";
+        _situationTexts[b + 4] = "...あ";
+        _situationTexts[b + 5] = "Oh...";
         _situationPoolSizes[SIT_DREAM_WAKE] = 6;
 
         // SIT_DREAM_WAKE_KNOWN (6)
-        _situationTexts[SIT_DREAM_WAKE_KNOWN] = new string[]
-        {
-            "覚えてる...",
-            "I remember...",
-            "夢に見た",
-            "I dreamed of you",
-            "あなたは...",
-            "You are..."
-        };
+        b = SIT_DREAM_WAKE_KNOWN * POOL_SIZE;
+        _situationTexts[b + 0] = "覚えてる...";
+        _situationTexts[b + 1] = "I remember...";
+        _situationTexts[b + 2] = "夢に見た";
+        _situationTexts[b + 3] = "I dreamed of you";
+        _situationTexts[b + 4] = "あなたは...";
+        _situationTexts[b + 5] = "You are...";
         _situationPoolSizes[SIT_DREAM_WAKE_KNOWN] = 6;
 
         // SIT_DREAM_WAKE_FRIEND (7)
-        _situationTexts[SIT_DREAM_WAKE_FRIEND] = new string[]
-        {
-            "おかえり...夢の中で待ってた",
-            "Welcome back... I was waiting",
-            "夢の中で会ってた",
-            "We met in my dream",
-            "ずっと待ってた",
-            "I was waiting for you"
-        };
+        b = SIT_DREAM_WAKE_FRIEND * POOL_SIZE;
+        _situationTexts[b + 0] = "おかえり...夢の中で待ってた";
+        _situationTexts[b + 1] = "Welcome back... I was waiting";
+        _situationTexts[b + 2] = "夢の中で会ってた";
+        _situationTexts[b + 3] = "We met in my dream";
+        _situationTexts[b + 4] = "ずっと待ってた";
+        _situationTexts[b + 5] = "I was waiting for you";
         _situationPoolSizes[SIT_DREAM_WAKE_FRIEND] = 6;
     }
 
@@ -360,7 +348,7 @@ public class ContextualUtterance : UdonSharpBehaviour
             }
         }
 
-        string text = _situationTexts[sit][selectedIdx];
+        string text = _situationTexts[sit * POOL_SIZE + selectedIdx];
 
         // Display via NPC personality layer
         _npc.ForceDisplayText(text, _displayDuration);

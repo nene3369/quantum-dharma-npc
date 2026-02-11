@@ -274,6 +274,22 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
             case QuantumDharmaManager.NPC_STATE_RETREAT:
                 return EMOTION_ANXIOUS;
 
+            case QuantumDharmaManager.NPC_STATE_GREET:
+                if (dominantIntent == BeliefState.INTENT_FRIENDLY)
+                    return EMOTION_GRATEFUL;
+                return EMOTION_WARM;
+
+            case QuantumDharmaManager.NPC_STATE_PLAY:
+                if (dominantIntent == BeliefState.INTENT_FRIENDLY)
+                    return EMOTION_WARM;
+                return EMOTION_CURIOUS;
+
+            case QuantumDharmaManager.NPC_STATE_WANDER:
+                return EMOTION_CURIOUS;
+
+            case QuantumDharmaManager.NPC_STATE_MEDITATE:
+                return EMOTION_CALM;
+
             default:
                 return EMOTION_CALM;
         }
@@ -434,7 +450,7 @@ public class QuantumDharmaNPC : UdonSharpBehaviour
                 _utteranceDisplayTimer = _utteranceDuration;
             }
         }
-        else if (_syncedUtteranceIndex == -2 && _syncedForceText.Length > 0)
+        else if (_syncedUtteranceIndex == -2 && _syncedForceText != null && _syncedForceText.Length > 0)
         {
             // Force text from owner (nickname speech, contextual utterances, etc.)
             _utteranceText.text = _syncedForceText;

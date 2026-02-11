@@ -118,7 +118,7 @@ public class PlayerSensor : UdonSharpBehaviour
 
             // Velocity via finite difference using saved previous positions
             Vector3 prevPos = FindPreviousPosition(player.playerId, playerPos);
-            Vector3 velocity = (playerPos - prevPos) / Mathf.Max(_pollInterval, Time.deltaTime);
+            Vector3 velocity = (playerPos - prevPos) / Mathf.Max(_pollInterval, Mathf.Max(Time.deltaTime, 0.001f));
 
             // Gaze: head rotation forward vector
             Vector3 gaze = player.GetRotation() * Vector3.forward;
