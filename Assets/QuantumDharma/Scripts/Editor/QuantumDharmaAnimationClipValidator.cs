@@ -30,15 +30,16 @@ public class QuantumDharmaAnimationClipValidator : EditorWindow
     }
 
     // Required animator parameters (22 total)
+    // Must match QuantumDharmaAnimatorBuilder output exactly
     private static readonly string[] RequiredParams = new string[]
     {
-        "Speed", "IsMoving", "IsIdle",
-        "EmotionCalm", "EmotionCurious", "EmotionWarm", "EmotionAnxious", "EmotionSurprised",
-        "MirrorCrouch", "MirrorLean",
-        "GestureWave", "GestureBow", "GestureNod", "GestureHeadTilt", "GestureBeckon", "GestureFlinch",
-        "IsSpeaking", "BreathingRate",
-        "NPCState", "Trust", "FreeEnergy",
-        "BlinkTrigger"
+        // Float parameters (14)
+        "EmotionCalm", "EmotionCurious", "EmotionWary", "EmotionWarm", "EmotionAfraid",
+        "BreathAmplitude", "NpcState", "FreeEnergy", "Trust", "MotorSpeed",
+        "MirrorCrouch", "MirrorLean", "GestureIntensity", "Blink",
+        // Trigger parameters (8)
+        "GestureWave", "GestureBow", "GestureHeadTilt", "GestureNod",
+        "GestureBeckon", "GestureFlinch", "GestureShake", "GestureRetreat"
     };
 
     // Required base layer states

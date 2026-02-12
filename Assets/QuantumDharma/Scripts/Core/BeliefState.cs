@@ -508,18 +508,19 @@ public class BeliefState : UdonSharpBehaviour
         float threatP = _posteriors[baseIdx + INTENT_THREAT];
 
         // Trust grows with friendly behavior, shrinks with threat
+        // Scale by _tickInterval so trust rate is consistent regardless of tick frequency
         if (dominant == INTENT_FRIENDLY)
         {
-            _slotTrust[slot] += _trustGrowthRate * friendlyP;
+            _slotTrust[slot] += _trustGrowthRate * friendlyP * _tickInterval;
         }
         else if (dominant == INTENT_THREAT)
         {
-            _slotTrust[slot] -= _trustDecayRate * threatP;
+            _slotTrust[slot] -= _trustDecayRate * threatP * _tickInterval;
         }
         else
         {
             // Neutral decay toward zero
-            _slotTrust[slot] = Mathf.MoveTowards(_slotTrust[slot], 0f, _trustNeutralDecay);
+            _slotTrust[slot] = Mathf.MoveTowards(_slotTrust[slot], 0f, _trustNeutralDecay * _tickInterval);
         }
         _slotTrust[slot] = Mathf.Clamp(_slotTrust[slot], -1f, 1f);
 

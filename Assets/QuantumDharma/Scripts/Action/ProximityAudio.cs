@@ -155,8 +155,9 @@ public class ProximityAudio : UdonSharpBehaviour
         }
         else
         {
+            float range = _maxAudibleDistance - _intimateDistance;
             distFactor = 1f - Mathf.Clamp01(
-                (distance - _intimateDistance) / (_maxAudibleDistance - _intimateDistance)
+                (distance - _intimateDistance) / Mathf.Max(range, 0.01f)
             );
         }
 

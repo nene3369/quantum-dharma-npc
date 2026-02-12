@@ -73,9 +73,11 @@ public class DreamNarrative : UdonSharpBehaviour
     [SerializeField] private float _shadowTrustThreshold = -0.1f;
 
     // ================================================================
-    // Utterance pools
+    // Utterance pools (flat array: tone * POOL_SIZE + index)
     // ================================================================
-    private string[][] _toneTexts;
+    private const int TONE_TYPE_COUNT = 5;
+    private const int POOL_SIZE = 8;
+    private string[] _toneTexts;
     private int[] _tonePoolSizes;
 
     // ================================================================
@@ -116,65 +118,58 @@ public class DreamNarrative : UdonSharpBehaviour
 
     private void InitializeUtterancePools()
     {
-        _toneTexts = new string[5][];
-        _tonePoolSizes = new int[5];
+        // Flat array: tone * POOL_SIZE + index (UdonSharp-safe)
+        _toneTexts = new string[TONE_TYPE_COUNT * POOL_SIZE];
+        _tonePoolSizes = new int[TONE_TYPE_COUNT];
+        for (int i = 0; i < _toneTexts.Length; i++) _toneTexts[i] = "";
 
         // TONE_NONE (0) — empty
-        _toneTexts[TONE_NONE] = new string[0];
         _tonePoolSizes[TONE_NONE] = 0;
 
         // TONE_WARM (1) — warm, friendly dreams
-        _toneTexts[TONE_WARM] = new string[]
-        {
-            "夢を見た…温かかった",
-            "I dreamed... it was warm",
-            "優しい夢だった",
-            "A kind dream...",
-            "光の中にいた",
-            "I was in the light",
-            "みんなの声が聞こえた",
-            "I heard everyone's voice"
-        };
+        int b = TONE_WARM * POOL_SIZE;
+        _toneTexts[b + 0] = "夢を見た…温かかった";
+        _toneTexts[b + 1] = "I dreamed... it was warm";
+        _toneTexts[b + 2] = "優しい夢だった";
+        _toneTexts[b + 3] = "A kind dream...";
+        _toneTexts[b + 4] = "光の中にいた";
+        _toneTexts[b + 5] = "I was in the light";
+        _toneTexts[b + 6] = "みんなの声が聞こえた";
+        _toneTexts[b + 7] = "I heard everyone's voice";
         _tonePoolSizes[TONE_WARM] = 8;
 
         // TONE_SHADOW (2) — dark, uneasy dreams
-        _toneTexts[TONE_SHADOW] = new string[]
-        {
-            "影の夢…",
-            "A dream of shadows...",
-            "暗い場所にいた",
-            "I was in a dark place",
-            "怖い夢だった…",
-            "A frightening dream...",
-            "誰かが走ってきた…",
-            "Someone was running toward me..."
-        };
+        b = TONE_SHADOW * POOL_SIZE;
+        _toneTexts[b + 0] = "影の夢…";
+        _toneTexts[b + 1] = "A dream of shadows...";
+        _toneTexts[b + 2] = "暗い場所にいた";
+        _toneTexts[b + 3] = "I was in a dark place";
+        _toneTexts[b + 4] = "怖い夢だった…";
+        _toneTexts[b + 5] = "A frightening dream...";
+        _toneTexts[b + 6] = "誰かが走ってきた…";
+        _toneTexts[b + 7] = "Someone was running toward me...";
         _tonePoolSizes[TONE_SHADOW] = 8;
 
         // TONE_WATER (3) — neutral, peaceful dreams
-        _toneTexts[TONE_WATER] = new string[]
-        {
-            "水の夢…静かだった",
-            "A dream of water... quiet",
-            "波の音がした",
-            "I heard the sound of waves",
-            "空を見ていた",
-            "I was watching the sky",
-            "穏やかな夢…",
-            "A peaceful dream..."
-        };
+        b = TONE_WATER * POOL_SIZE;
+        _toneTexts[b + 0] = "水の夢…静かだった";
+        _toneTexts[b + 1] = "A dream of water... quiet";
+        _toneTexts[b + 2] = "波の音がした";
+        _toneTexts[b + 3] = "I heard the sound of waves";
+        _toneTexts[b + 4] = "空を見ていた";
+        _toneTexts[b + 5] = "I was watching the sky";
+        _toneTexts[b + 6] = "穏やかな夢…";
+        _toneTexts[b + 7] = "A peaceful dream...";
         _tonePoolSizes[TONE_WATER] = 8;
 
         // TONE_VOID (4) — no memories, empty dream
-        _toneTexts[TONE_VOID] = new string[]
-        {
-            "何もない夢…",
-            "An empty dream...",
-            "静寂だけ",
-            "Only silence",
-            "…何も覚えてない",
-            "...I don't remember anything"
-        };
+        b = TONE_VOID * POOL_SIZE;
+        _toneTexts[b + 0] = "何もない夢…";
+        _toneTexts[b + 1] = "An empty dream...";
+        _toneTexts[b + 2] = "静寂だけ";
+        _toneTexts[b + 3] = "Only silence";
+        _toneTexts[b + 4] = "…何も覚えてない";
+        _toneTexts[b + 5] = "...I don't remember anything";
         _tonePoolSizes[TONE_VOID] = 6;
     }
 
@@ -263,7 +258,7 @@ public class DreamNarrative : UdonSharpBehaviour
             }
         }
 
-        _lastNarrativeText = _toneTexts[tone][selectedIdx];
+        _lastNarrativeText = _toneTexts[tone * POOL_SIZE + selectedIdx];
         _npc.ForceDisplayText(_lastNarrativeText, _displayDuration);
     }
 
