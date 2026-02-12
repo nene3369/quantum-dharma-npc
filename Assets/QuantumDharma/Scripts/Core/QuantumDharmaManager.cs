@@ -105,6 +105,9 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     [SerializeField] private EnvironmentAwareness _environmentAwareness;
     [SerializeField] private ImitationLearning _imitationLearning;
 
+    [Header("Components — Sensory Processing (optional)")]
+    [SerializeField] private SensoryGating _sensoryGating;
+
     // ================================================================
     // Stage toggles (Inspector ON/OFF per evolution stage)
     // Stage 1 (Core) is always active.
@@ -346,6 +349,13 @@ public class QuantumDharmaManager : UdonSharpBehaviour
         // Step 1: Read observations and manage slot registration
         ReadObservations();
         ManageSlotRegistration();
+
+        // Step 1.5: Update sensory gating (state-dependent channel selection)
+        if (_sensoryGating != null)
+        {
+            float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
+            _sensoryGating.UpdateGains(_npcState, trust, _effectiveInterval);
+        }
 
         // Step 2: Compute free energy (enhanced or fallback)
         if (_freeEnergyCalculator != null)
@@ -737,6 +747,12 @@ public class QuantumDharmaManager : UdonSharpBehaviour
                 _freeEnergyCalculator.SetSlotPrecisionMultiplier(
                     feSlot, _attentionSystem.GetPrecisionMultiplier(bsSlot >= 0 ? bsSlot : feSlot));
             }
+        }
+
+        // Apply sensory gating gains to precision channels
+        if (_sensoryGating != null)
+        {
+            _freeEnergyCalculator.SetChannelGatingGains(_sensoryGating.GetAllGains());
         }
 
         // Compute with trust
@@ -1573,6 +1589,11 @@ public class QuantumDharmaManager : UdonSharpBehaviour
     public ImitationLearning GetImitationLearning()
     {
         return _imitationLearning;
+    }
+
+    public SensoryGating GetSensoryGating()
+    {
+        return _sensoryGating;
     }
 
     public bool IsStageEnabled(int stage)

@@ -61,6 +61,7 @@ public class QuantumDharmaCreator : EditorWindow
         "AutonomousGoals",
         "EnvironmentAwareness",
         "ImitationLearning",
+        "SensoryGating",
         // ── Perception (7) ──
         "PlayerSensor",
         "MarkovBlanket",

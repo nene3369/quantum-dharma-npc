@@ -467,6 +467,7 @@ public class QuantumDharmaValidator : EditorWindow
             "Mythology", "CompanionMemory", "FarewellBehavior",
             "PersonalityPreset", "PersonalityInstaller",
             "AutonomousGoals", "EnvironmentAwareness", "ImitationLearning",
+            "SensoryGating",
             // Perception (7)
             "PlayerSensor", "MarkovBlanket", "HandProximityDetector",
             "PostureDetector", "TouchSensor", "GiftReceiver", "VoiceDetector",

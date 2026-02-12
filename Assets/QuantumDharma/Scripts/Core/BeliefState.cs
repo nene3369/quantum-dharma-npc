@@ -283,18 +283,7 @@ public class BeliefState : UdonSharpBehaviour
         {
             if (!_slotActive[i])
             {
-                _slotPlayerIds[i] = playerId;
-                _slotActive[i] = true;
-                _slotTrust[i] = 0f;
-                _slotKindness[i] = 0f;
-                _slotDominantIntent[i] = INTENT_NEUTRAL;
-                _activeSlotCount++;
-
-                // Initialize posterior to prior
-                for (int j = 0; j < INTENT_COUNT; j++)
-                {
-                    _posteriors[i * INTENT_COUNT + j] = _prior[j];
-                }
+                InitSlot(i, playerId);
                 return i;
             }
         }
@@ -315,14 +304,9 @@ public class BeliefState : UdonSharpBehaviour
         }
         if (evictSlot >= 0)
         {
-            _slotPlayerIds[evictSlot] = playerId;
-            _slotTrust[evictSlot] = 0f;
-            _slotKindness[evictSlot] = 0f;
-            _slotDominantIntent[evictSlot] = INTENT_NEUTRAL;
-            for (int j = 0; j < INTENT_COUNT; j++)
-            {
-                _posteriors[evictSlot * INTENT_COUNT + j] = _prior[j];
-            }
+            _slotActive[evictSlot] = false;
+            _activeSlotCount--;
+            InitSlot(evictSlot, playerId);
             return evictSlot;
         }
         return -1;
@@ -346,6 +330,22 @@ public class BeliefState : UdonSharpBehaviour
                 _slotKindness[i] = 0f;
                 return;
             }
+        }
+    }
+
+    /// <summary>Initialize a slot with default values and assign a playerId.</summary>
+    private void InitSlot(int slot, int playerId)
+    {
+        _slotPlayerIds[slot] = playerId;
+        _slotActive[slot] = true;
+        _slotTrust[slot] = 0f;
+        _slotKindness[slot] = 0f;
+        _slotDominantIntent[slot] = INTENT_NEUTRAL;
+        _activeSlotCount++;
+
+        for (int j = 0; j < INTENT_COUNT; j++)
+        {
+            _posteriors[slot * INTENT_COUNT + j] = _prior[j];
         }
     }
 

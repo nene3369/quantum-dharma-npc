@@ -128,6 +128,9 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
     // Complexity cost (computed per tick)
     private float _complexityCost;
 
+    // Per-channel sensory gating multipliers (from SensoryGating, default 1.0)
+    private float[] _channelGatingGains;
+
     private void Start()
     {
         // Guard configurable window size (used as modulo divisor and array size)
@@ -142,6 +145,8 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         _effectivePrecision = new float[CH_COUNT];
         _velocityHistory = new float[MAX_SLOTS * _behaviorWindowSize];
         _velocityHistoryIdx = new int[MAX_SLOTS];
+        _channelGatingGains = new float[CH_COUNT];
+        for (int c = 0; c < CH_COUNT; c++) _channelGatingGains[c] = 1.0f;
 
         for (int i = 0; i < MAX_SLOTS; i++)
         {
@@ -180,26 +185,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         {
             if (!_slotActive[i])
             {
-                _slotPlayerIds[i] = playerId;
-                _slotActive[i] = true;
-                _slotFreeEnergy[i] = 0f;
-                _slotPrevFreeEnergy[i] = 0f;
-                _slotPrecisionMultiplier[i] = 1.0f;
-                _activeSlotCount++;
-
-                // Clear velocity history
-                for (int j = 0; j < _behaviorWindowSize; j++)
-                {
-                    _velocityHistory[i * _behaviorWindowSize + j] = 0f;
-                }
-                _velocityHistoryIdx[i] = 0;
-
-                // Clear PE channels
-                for (int c = 0; c < CH_COUNT; c++)
-                {
-                    _pe[i * CH_COUNT + c] = 0f;
-                }
-
+                InitSlot(i, playerId);
                 return i;
             }
         }
@@ -217,20 +203,7 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         if (evictSlot >= 0)
         {
             _slotActive[evictSlot] = false;
-            _slotPlayerIds[evictSlot] = playerId;
-            _slotActive[evictSlot] = true;
-            _slotFreeEnergy[evictSlot] = 0f;
-            _slotPrevFreeEnergy[evictSlot] = 0f;
-            _slotPrecisionMultiplier[evictSlot] = 1.0f;
-            for (int j = 0; j < _behaviorWindowSize; j++)
-            {
-                _velocityHistory[evictSlot * _behaviorWindowSize + j] = 0f;
-            }
-            _velocityHistoryIdx[evictSlot] = 0;
-            for (int c = 0; c < CH_COUNT; c++)
-            {
-                _pe[evictSlot * CH_COUNT + c] = 0f;
-            }
+            InitSlot(evictSlot, playerId);
             return evictSlot;
         }
         return -1;
@@ -249,6 +222,28 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
                 _activeSlotCount--;
                 return;
             }
+        }
+    }
+
+    /// <summary>Initialize a slot with default values and assign a playerId.</summary>
+    private void InitSlot(int slot, int playerId)
+    {
+        _slotPlayerIds[slot] = playerId;
+        _slotActive[slot] = true;
+        _slotFreeEnergy[slot] = 0f;
+        _slotPrevFreeEnergy[slot] = 0f;
+        _slotPrecisionMultiplier[slot] = 1.0f;
+        _activeSlotCount++;
+
+        for (int j = 0; j < _behaviorWindowSize; j++)
+        {
+            _velocityHistory[slot * _behaviorWindowSize + j] = 0f;
+        }
+        _velocityHistoryIdx[slot] = 0;
+
+        for (int c = 0; c < CH_COUNT; c++)
+        {
+            _pe[slot * CH_COUNT + c] = 0f;
         }
     }
 
@@ -274,6 +269,21 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
             }
         }
         return -1;
+    }
+
+    /// <summary>
+    /// Set per-channel sensory gating gains from SensoryGating component.
+    /// These multiply effective precision per channel before computing F.
+    /// Call once per tick before ComputeAll().
+    /// </summary>
+    public void SetChannelGatingGains(float[] gains)
+    {
+        if (gains == null) return;
+        int len = gains.Length < CH_COUNT ? gains.Length : CH_COUNT;
+        for (int c = 0; c < len; c++)
+        {
+            _channelGatingGains[c] = Mathf.Clamp(gains[c], 0.01f, 10f);
+        }
     }
 
     // ================================================================
@@ -359,6 +369,12 @@ public class FreeEnergyCalculator : UdonSharpBehaviour
         _effectivePrecision[CH_GAZE] = _precisionGaze * (1f + Mathf.Max(0f, trust) * _trustModGaze);
         // Distrust → behavior precision increases (vigilant about erratic behavior)
         _effectivePrecision[CH_BEHAVIOR] = _precisionBehavior * (1f + Mathf.Max(0f, -trust) * _trustModBehavior);
+
+        // Apply sensory gating gains (state-dependent channel selection)
+        for (int c = 0; c < CH_COUNT; c++)
+        {
+            _effectivePrecision[c] *= _channelGatingGains[c];
+        }
 
         // Clamp all precisions to [0.01, 10]
         for (int c = 0; c < CH_COUNT; c++)

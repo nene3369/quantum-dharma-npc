@@ -79,6 +79,9 @@ public class DebugOverlay : UdonSharpBehaviour
     [SerializeField] private CompanionMemory _companionMemory;
     [SerializeField] private FarewellBehavior _farewellBehavior;
 
+    [Header("References — Sensory Processing (optional)")]
+    [SerializeField] private SensoryGating _sensoryGating;
+
     [Header("UI Elements")]
     [SerializeField] private GameObject _panelRoot;
     [SerializeField] private Text _stateLabel;
@@ -177,617 +180,697 @@ public class DebugOverlay : UdonSharpBehaviour
         float freeEnergy = _manager.GetFreeEnergy();
         string stateName = _manager.GetNPCStateName();
 
-        // State label — include emotion and dream state
-        if (_stateLabel != null)
+        RefreshStateLabel(stateName);
+        RefreshStateBackground(state);
+        RefreshFreeEnergyLabel(freeEnergy);
+        RefreshTrustLabel();
+        RefreshRadiusLabel();
+        RefreshDetailsLabel();
+    }
+
+    // ================================================================
+    // Individual panel sections
+    // ================================================================
+
+    private void RefreshStateLabel(string stateName)
+    {
+        if (_stateLabel == null) return;
+
+        string label = stateName;
+        if (_npc != null)
         {
-            string label = stateName;
-            if (_npc != null)
+            label += " | " + _npc.GetEmotionName();
+        }
+        if (_dreamState != null && _dreamState.IsInDreamCycle())
+        {
+            label = _dreamState.GetPhaseName();
+            if (_dreamState.IsDreaming())
             {
-                label += " | " + _npc.GetEmotionName();
+                label += " " + _dreamState.GetDreamDuration().ToString("F0") + "s";
             }
-            if (_dreamState != null && _dreamState.IsInDreamCycle())
+        }
+        _stateLabel.text = label;
+    }
+
+    private void RefreshStateBackground(int state)
+    {
+        if (_stateBackground == null) return;
+
+        if (_dreamState != null && _dreamState.IsInDreamCycle())
+        {
+            _stateBackground.color = new Color(0.4f, 0.3f, 0.7f, 0.85f);
+        }
+        else
+        {
+            _stateBackground.color = GetStateColor(state);
+        }
+    }
+
+    private void RefreshFreeEnergyLabel(float freeEnergy)
+    {
+        if (_freeEnergyLabel == null) return;
+
+        string feStr = "F: " + freeEnergy.ToString("F2");
+        if (_freeEnergyCalculator != null)
+        {
+            float trend = _freeEnergyCalculator.GetTrend();
+            if (trend > 0.1f) feStr += " ^";
+            else if (trend < -0.1f) feStr += " v";
+            else feStr += " =";
+
+            feStr += "  Peak: " + _freeEnergyCalculator.GetPeakFreeEnergy().ToString("F1");
+        }
+        _freeEnergyLabel.text = feStr;
+    }
+
+    private void RefreshTrustLabel()
+    {
+        if (_trustLabel == null) return;
+
+        float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
+        string trustStr = "Trust: " + trust.ToString("F2");
+
+        if (_beliefState != null)
+        {
+            int focusSlot = _manager.GetFocusSlotBelief();
+            if (focusSlot >= 0)
             {
-                label = _dreamState.GetPhaseName();
-                if (_dreamState.IsDreaming())
-                {
-                    label += " " + _dreamState.GetDreamDuration().ToString("F0") + "s";
-                }
+                float slotTrust = _beliefState.GetSlotTrust(focusSlot);
+                float kindness = _beliefState.GetSlotKindness(focusSlot);
+                bool isFriend = _beliefState.IsFriend(focusSlot);
+                trustStr += "  P:" + slotTrust.ToString("F2");
+                trustStr += "  K:" + kindness.ToString("F1");
+                if (isFriend) trustStr += " [Friend]";
             }
-            _stateLabel.text = label;
+        }
+        _trustLabel.text = trustStr;
+    }
+
+    private void RefreshRadiusLabel()
+    {
+        if (_radiusLabel == null) return;
+        float radius = _markovBlanket != null ? _markovBlanket.GetCurrentRadius() : 0f;
+        _radiusLabel.text = "Radius: " + radius.ToString("F1") + "m";
+    }
+
+    private void RefreshDetailsLabel()
+    {
+        if (_detailsLabel == null) return;
+
+        int focusSensorIdx = FindFocusSensorIndex();
+        string details = BuildCorePELine();
+        details += BuildPlayerMotorLine();
+        details += BuildBodySignalLine(focusSensorIdx);
+        details += BuildBeliefLine();
+        details += BuildUtteranceLine();
+        details += BuildSessionMemoryLine();
+        details += BuildGazeLine();
+        details += BuildTouchLine();
+        details += BuildGiftLine();
+        details += BuildDreamLine();
+        details += BuildMirrorLine();
+        details += BuildContextLine();
+        details += BuildAudioLine();
+        details += BuildVoiceLine(focusSensorIdx);
+        details += BuildDreamNarrativeLine();
+        details += BuildPatrolLine();
+        details += BuildTrustVizLine();
+        details += BuildPersonalityLine();
+        details += BuildCuriosityLine();
+        details += BuildGestureLine();
+        details += BuildGroupLine();
+        details += BuildCrowdLine();
+        details += BuildAttentionLine();
+        details += BuildHabitLine();
+        details += BuildRelayLine();
+        details += BuildRitualLine();
+        details += BuildCollectiveLine();
+        details += BuildGiftChainLine();
+        details += BuildNormLine();
+        details += BuildStoryLine();
+        details += BuildNameLine();
+        details += BuildMythologyLine();
+        details += BuildCompanionLine();
+        details += BuildFarewellLine();
+        details += BuildVocabConfidenceLine();
+        details += BuildGroupRoleLine();
+        details += BuildMotorSpeedLine();
+        details += BuildSensoryGatingLine();
+        details += BuildStageLine();
+
+        _detailsLabel.text = details;
+    }
+
+    // ================================================================
+    // Detail line builders
+    // ================================================================
+
+    private int FindFocusSensorIndex()
+    {
+        if (_playerSensor == null || _manager == null) return -1;
+        VRCPlayerApi focusP = _manager.GetFocusPlayer();
+        if (focusP == null || !focusP.IsValid()) return -1;
+
+        int cnt = _playerSensor.GetTrackedPlayerCount();
+        for (int i = 0; i < cnt; i++)
+        {
+            VRCPlayerApi tp = _playerSensor.GetTrackedPlayer(i);
+            if (tp != null && tp.playerId == focusP.playerId)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private string BuildCorePELine()
+    {
+        float peD = _manager.GetPredictionErrorDistance();
+        float peV = _manager.GetPredictionErrorVelocity();
+        float peG = _manager.GetPredictionErrorGaze();
+
+        string line = "PE d:" + peD.ToString("F2") +
+            " v:" + peV.ToString("F2") +
+            " g:" + peG.ToString("F2");
+
+        if (_freeEnergyCalculator != null)
+        {
+            int focusSlot = _manager.GetFocusSlot();
+            if (focusSlot >= 0)
+            {
+                float peA = _freeEnergyCalculator.GetSlotPE(focusSlot, FreeEnergyCalculator.CH_ANGLE);
+                float peB = _freeEnergyCalculator.GetSlotPE(focusSlot, FreeEnergyCalculator.CH_BEHAVIOR);
+                line += " a:" + peA.ToString("F2") + " b:" + peB.ToString("F2");
+            }
+        }
+        return line;
+    }
+
+    private string BuildPlayerMotorLine()
+    {
+        int playerCount = _playerSensor != null ? _playerSensor.GetTrackedPlayerCount() : 0;
+        float focusDist = _manager.GetFocusDistance();
+
+        string motorLabel = "Idle";
+        if (_npcMotor != null)
+        {
+            int motorState = _npcMotor.GetMotorState();
+            if (motorState == 1) motorLabel = "WalkTo";
+            else if (motorState == 2) motorLabel = "WalkAway";
+            else if (motorState == 3) motorLabel = "Face";
         }
 
-        // State background color — override during dream cycle
-        if (_stateBackground != null)
+        return "\nPlayers: " + playerCount.ToString() +
+            "  Dist: " + (focusDist < 999f ? focusDist.ToString("F1") + "m" : "--") +
+            "  Motor: " + motorLabel;
+    }
+
+    private string BuildBodySignalLine(int focusSensorIdx)
+    {
+        if (_handProximityDetector == null && _postureDetector == null) return "";
+
+        string bodyLine = "\n";
+        if (focusSensorIdx >= 0)
         {
-            if (_dreamState != null && _dreamState.IsInDreamCycle())
+            if (_handProximityDetector != null)
             {
-                // Purple-ish for dream states
-                _stateBackground.color = new Color(0.4f, 0.3f, 0.7f, 0.85f);
+                float handDist = _handProximityDetector.GetClosestHandDistance(focusSensorIdx);
+                bool reaching = _handProximityDetector.IsReachingOut(focusSensorIdx);
+                bodyLine += "Hand:" + (handDist < 999f ? handDist.ToString("F1") + "m" : "--");
+                if (reaching) bodyLine += " [Reach]";
             }
+            if (_postureDetector != null)
+            {
+                float ratio = _postureDetector.GetHeadHeightRatio(focusSensorIdx);
+                bool crouching = _postureDetector.IsCrouching(focusSensorIdx);
+                bodyLine += "  Posture:" + ratio.ToString("F2");
+                if (crouching) bodyLine += " [Crouch]";
+            }
+        }
+        else
+        {
+            bodyLine += "Hand:--  Posture:--";
+        }
+        return bodyLine;
+    }
+
+    private string BuildBeliefLine()
+    {
+        if (_beliefState == null) return "";
+        int focusSlot = _manager.GetFocusSlotBelief();
+        if (focusSlot < 0) return "";
+
+        int dominant = _beliefState.GetDominantIntent(focusSlot);
+        string intentName = _beliefState.GetIntentName(dominant);
+        float pA = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_APPROACH);
+        float pN = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_NEUTRAL);
+        float pT = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_THREAT);
+        float pF = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_FRIENDLY);
+
+        return "\nBelief: " + intentName +
+            " [A:" + pA.ToString("F2") +
+            " N:" + pN.ToString("F2") +
+            " T:" + pT.ToString("F2") +
+            " F:" + pF.ToString("F2") + "]";
+    }
+
+    private string BuildUtteranceLine()
+    {
+        if (_npc == null) return "";
+        string utt = _npc.GetCurrentUtterance();
+        if (utt.Length == 0) return "";
+        return "\n\"" + utt + "\"";
+    }
+
+    private string BuildSessionMemoryLine()
+    {
+        if (_sessionMemory == null) return "";
+
+        string memLine = "\nMem:" + _sessionMemory.GetMemoryCount().ToString() +
+            " Friends:" + _sessionMemory.GetFriendCount().ToString();
+
+        VRCPlayerApi fp = _manager.GetFocusPlayer();
+        if (fp != null && fp.IsValid())
+        {
+            string memDebug = _sessionMemory.GetMemoryDebugString(fp.playerId);
+            if (memDebug.Length > 0)
+            {
+                memLine += " | " + memDebug;
+            }
+        }
+        return memLine;
+    }
+
+    private string BuildGazeLine()
+    {
+        if (_lookAtController == null) return "";
+        string gazeLine = "\nGaze:" + _lookAtController.GetGazeWeight().ToString("F2");
+        if (_lookAtController.IsGlancingBack())
+        {
+            gazeLine += " [Glance]";
+        }
+        return gazeLine;
+    }
+
+    private string BuildTouchLine()
+    {
+        if (_touchSensor == null) return "";
+
+        string touchLine = "\nTouch:";
+        if (_touchSensor.IsTouched())
+        {
+            touchLine += _touchSensor.GetActiveTouchCount().ToString();
+            int lastZone = _touchSensor.GetLastTouchZone();
+            touchLine += " [" + _touchSensor.GetZoneName(lastZone) + "]";
+            touchLine += " sig:" + _touchSensor.GetTouchSignal().ToString("F2");
+
+            VRCPlayerApi fp = _manager.GetFocusPlayer();
+            if (fp != null && fp.IsValid())
+            {
+                float dur = _touchSensor.GetPlayerContactDuration(fp.playerId);
+                if (dur > 0f) touchLine += " " + dur.ToString("F1") + "s";
+            }
+        }
+        else
+        {
+            touchLine += "-- sig:" + _touchSensor.GetTouchSignal().ToString("F2");
+        }
+        return touchLine;
+    }
+
+    private string BuildGiftLine()
+    {
+        if (_giftReceiver == null) return "";
+        int totalGifts = _giftReceiver.GetTotalGiftCount();
+        string giftLine = "\nGifts:" + totalGifts.ToString();
+        giftLine += " sig:" + _giftReceiver.GetGiftSignal().ToString("F2");
+        if (_giftReceiver.GetTimeSinceLastGift() < 5f)
+        {
+            giftLine += " [New!]";
+        }
+        return giftLine;
+    }
+
+    private string BuildDreamLine()
+    {
+        if (_dreamState == null) return "";
+        string dreamLine = "\nDream:" + _dreamState.GetPhaseName();
+        if (_dreamState.IsDreaming())
+        {
+            dreamLine += " " + _dreamState.GetDreamDuration().ToString("F0") + "s";
+        }
+        else if (_dreamState.IsWaking())
+        {
+            dreamLine += " wake:" + (_dreamState.GetWakeProgress() * 100f).ToString("F0") + "%";
+        }
+        return dreamLine;
+    }
+
+    private string BuildMirrorLine()
+    {
+        if (_mirrorBehavior == null) return "";
+        string mirrorLine = "\nMirror:";
+        if (_mirrorBehavior.IsActive())
+        {
+            mirrorLine += "ON drop:" + _mirrorBehavior.GetCrouchDrop().ToString("F2") +
+                "m lean:" + _mirrorBehavior.GetLeanAngle().ToString("F1") + "°";
+        }
+        else
+        {
+            mirrorLine += "OFF";
+        }
+        return mirrorLine;
+    }
+
+    private string BuildContextLine()
+    {
+        if (_contextualUtterance == null) return "";
+        int lastSit = _contextualUtterance.GetLastSituation();
+        if (lastSit == ContextualUtterance.SIT_NONE) return "";
+        return "\nContext:" + _contextualUtterance.GetSituationName(lastSit);
+    }
+
+    private string BuildAudioLine()
+    {
+        if (_proximityAudio == null) return "";
+        return "\nAudio vol:" + _proximityAudio.GetCurrentVolume().ToString("F2") +
+            " pitch:" + _proximityAudio.GetCurrentPitch().ToString("F2");
+    }
+
+    private string BuildVoiceLine(int focusSensorIdx)
+    {
+        if (_voiceDetector == null) return "";
+        float maxVoice = _voiceDetector.GetMaxVoiceSignal();
+        string voiceLine = "\nVoice:" + maxVoice.ToString("F2");
+        if (focusSensorIdx >= 0)
+        {
+            float focusVoice = _voiceDetector.GetVoiceSignal(focusSensorIdx);
+            voiceLine += " focus:" + focusVoice.ToString("F2");
+        }
+        return voiceLine;
+    }
+
+    private string BuildDreamNarrativeLine()
+    {
+        if (_dreamNarrative == null) return "";
+        int tone = _dreamNarrative.GetLastTone();
+        if (tone == DreamNarrative.TONE_NONE) return "";
+
+        string line = "\nDreamNarr:" + _dreamNarrative.GetToneName(tone);
+        string narrText = _dreamNarrative.GetLastNarrativeText();
+        if (narrText.Length > 0)
+        {
+            line += " \"" + narrText + "\"";
+        }
+        return line;
+    }
+
+    private string BuildPatrolLine()
+    {
+        if (_idleWaypoints == null) return "";
+        string line = "\nPatrol:" + _idleWaypoints.GetPatrolStateName();
+        if (_idleWaypoints.IsActive())
+        {
+            line += " wp:" + _idleWaypoints.GetCurrentWaypointIndex().ToString() +
+                "/" + _idleWaypoints.GetWaypointCount().ToString();
+        }
+        return line;
+    }
+
+    private string BuildTrustVizLine()
+    {
+        if (_trustVisualizer == null) return "";
+        return "\nTrustViz em:" + _trustVisualizer.GetEmissionIntensity().ToString("F2");
+    }
+
+    private string BuildPersonalityLine()
+    {
+        if (_adaptivePersonality == null) return "";
+        return "\nPersonality S:" + _adaptivePersonality.GetSociability().ToString("F2") +
+            " C:" + _adaptivePersonality.GetCautiousness().ToString("F2") +
+            " E:" + _adaptivePersonality.GetExpressiveness().ToString("F2");
+    }
+
+    private string BuildCuriosityLine()
+    {
+        if (_curiosityDrive == null) return "";
+        return "\nCuriosity:" + _curiosityDrive.GetAggregateCuriosity().ToString("F2") +
+            " focus:" + _curiosityDrive.GetFocusCuriosity().ToString("F2") +
+            " bias:" + _curiosityDrive.GetCuriosityBias().ToString("F2") +
+            " tracked:" + _curiosityDrive.GetTrackedSlotCount().ToString();
+    }
+
+    private string BuildGestureLine()
+    {
+        if (_gestureController == null) return "";
+        string line = "\nGesture:" + _gestureController.GetLastGestureName();
+        if (_gestureController.IsInCooldown())
+        {
+            line += " [CD]";
+        }
+        return line;
+    }
+
+    private string BuildGroupLine()
+    {
+        if (_groupDynamics == null) return "";
+        int groups = _groupDynamics.GetActiveGroupCount();
+        string line = "\nGroups:" + groups.ToString();
+        int focusSlotG = _manager.GetFocusSlotBelief();
+        if (focusSlotG >= 0)
+        {
+            int gId = _groupDynamics.GetGroupId(focusSlotG);
+            if (gId != GroupDynamics.GROUP_NONE)
+            {
+                line += " g:" + gId.ToString() +
+                    " gT:" + _groupDynamics.GetGroupTrust(gId).ToString("F2") +
+                    " sz:" + _groupDynamics.GetGroupSize(gId).ToString();
+            }
+            float fof = _groupDynamics.GetFriendOfFriendBonus(focusSlotG);
+            if (fof > 0.001f) line += " FoF:" + fof.ToString("F2");
+        }
+        return line;
+    }
+
+    private string BuildCrowdLine()
+    {
+        if (_emotionalContagion == null) return "";
+        return "\nCrowd:" + _emotionalContagion.GetCrowdSize().ToString() +
+            " mood:" + _emotionalContagion.GetCrowdMood().ToString("F2") +
+            " anx:" + _emotionalContagion.GetCrowdAnxiety().ToString("F2") +
+            " warm:" + _emotionalContagion.GetCrowdWarmth().ToString("F2");
+    }
+
+    private string BuildAttentionLine()
+    {
+        if (_attentionSystem == null) return "";
+        int attnFocus = _attentionSystem.GetFocusSlot();
+        string line = "\nAttn focus:" + attnFocus.ToString() +
+            " slots:" + _attentionSystem.GetAttendedSlotCount().ToString() +
+            " budget:" + _attentionSystem.GetAttentionBudgetRemaining().ToString("F2");
+        int focusSlotA = _manager.GetFocusSlotBelief();
+        if (focusSlotA >= 0)
+        {
+            line += " lv:" + _attentionSystem.GetAttention(focusSlotA).ToString("F2") +
+                " px:" + _attentionSystem.GetPrecisionMultiplier(focusSlotA).ToString("F2");
+        }
+        return line;
+    }
+
+    private string BuildHabitLine()
+    {
+        if (_habitFormation == null) return "";
+        return "\nHabits:" + _habitFormation.GetHabitSlotCount().ToString() +
+            " lonely:" + _habitFormation.GetLonelinessSignal().ToString("F2") +
+            " absent:" + _habitFormation.GetExpectedAbsentCount().ToString();
+    }
+
+    private string BuildRelayLine()
+    {
+        if (_multiNPCRelay == null) return "";
+        return "\nRelay peers:" + _multiNPCRelay.GetPeerCount().ToString() +
+            " entries:" + _multiNPCRelay.GetRelayCount().ToString();
+    }
+
+    private string BuildRitualLine()
+    {
+        if (_sharedRitual == null) return "";
+        string line = "\nRitual:" + _sharedRitual.GetActiveRitualCount().ToString() + " active";
+        if (_sharedRitual.IsRitualActive()) line += " [ACTIVE]";
+        return line;
+    }
+
+    private string BuildCollectiveLine()
+    {
+        if (_collectiveMemory == null) return "";
+        return "\nCollective:" + _collectiveMemory.GetCollectiveCount().ToString() +
+            " avgT:" + _collectiveMemory.GetVillageAverageTrust().ToString("F2");
+    }
+
+    private string BuildGiftChainLine()
+    {
+        if (_giftEconomy == null) return "";
+        return "\nGiftChains:" + _giftEconomy.GetActiveChainCount().ToString();
+    }
+
+    private string BuildNormLine()
+    {
+        if (_normFormation == null) return "";
+        string line = "\nNorms:" + _normFormation.GetActiveZoneCount().ToString() + " zones";
+        if (_normFormation.HasNormViolation())
+        {
+            int vz = _normFormation.GetViolationZone();
+            line += " [Violation z:" + vz.ToString() + "]";
+        }
+        return line;
+    }
+
+    private string BuildStoryLine()
+    {
+        if (_oralHistory == null) return "";
+        string line = "\nStories:" + _oralHistory.GetStoryCount().ToString();
+        if (_oralHistory.HasStoryToTell()) line += " [Ready]";
+        string lastStory = _oralHistory.GetLastStoryText();
+        if (lastStory.Length > 0) line += " \"" + lastStory + "\"";
+        return line;
+    }
+
+    private string BuildNameLine()
+    {
+        if (_nameGiving == null) return "";
+        string line = "\nNamed:" + _nameGiving.GetNamedCount().ToString();
+        VRCPlayerApi fpN = _manager.GetFocusPlayer();
+        if (fpN != null && fpN.IsValid() && _nameGiving.HasNickname(fpN.playerId))
+        {
+            line += " [" + _nameGiving.GetNickname(fpN.playerId) + "]";
+        }
+        return line;
+    }
+
+    private string BuildMythologyLine()
+    {
+        if (_mythology == null) return "";
+        string line = "\nLegends:" + _mythology.GetLegendCount().ToString();
+        if (_mythology.HasLegendToTell()) line += " [Ready]";
+        VRCPlayerApi fpM = _manager.GetFocusPlayer();
+        if (fpM != null && fpM.IsValid() && _mythology.IsLegend(fpM.playerId))
+        {
+            line += " [LEGEND: " + _mythology.GetLegendTitle(fpM.playerId) + "]";
+        }
+        return line;
+    }
+
+    private string BuildCompanionLine()
+    {
+        if (_companionMemory == null) return "";
+        string line = "\nCompanions:" + _companionMemory.GetCompanionCount().ToString() +
+            " pairs:" + _companionMemory.GetPairCount().ToString();
+        if (_companionMemory.HasMissingCompanion())
+        {
+            line += " [Missing!]";
+        }
+        VRCPlayerApi fpC = _manager.GetFocusPlayer();
+        if (fpC != null && fpC.IsValid())
+        {
+            int comp = _companionMemory.GetStrongestCompanion(fpC.playerId);
+            if (comp >= 0)
+            {
+                line += " buddy:" + comp.ToString() +
+                    " str:" + _companionMemory.GetCompanionStrength(fpC.playerId).ToString();
+            }
+        }
+        return line;
+    }
+
+    private string BuildFarewellLine()
+    {
+        if (_farewellBehavior == null) return "";
+        if (!_farewellBehavior.IsActive()) return "";
+        return "\nFarewell:" +
+            _farewellBehavior.GetFarewellTypeName(_farewellBehavior.GetActiveFarewellType()) +
+            " \"" + _farewellBehavior.GetLastFarewellText() + "\"";
+    }
+
+    private string BuildVocabConfidenceLine()
+    {
+        string line = "";
+        if (_npc != null)
+        {
+            line += "\nVocab:" + _npc.GetVocabularySize().ToString() +
+                " peak:" + _npc.GetPeakEmotionIntensity().ToString("F2");
+        }
+        if (_manager != null && _manager.GetBeliefState() != null)
+        {
+            int fSlot = _manager.GetFocusSlotBelief();
+            if (fSlot >= 0)
+            {
+                BeliefState bs = _manager.GetBeliefState();
+                line += " conf:" + bs.GetBeliefConfidence(fSlot).ToString("F2") +
+                    " H:" + bs.GetPosteriorEntropy(fSlot).ToString("F2");
+            }
+        }
+        return line;
+    }
+
+    private string BuildGroupRoleLine()
+    {
+        if (_manager == null) return "";
+        GroupDynamics gd = _manager.GetGroupDynamics();
+        if (gd == null) return "";
+
+        int fSlotG = _manager.GetFocusSlotBelief();
+        if (fSlotG < 0) return "";
+
+        int role = gd.GetGroupRole(fSlotG);
+        if (role <= 0) return "";
+
+        int gId = gd.GetGroupId(fSlotG);
+        return "\nGroup:" + gId.ToString() +
+            " role:" + gd.GetGroupRoleName(role) +
+            " stab:" + gd.GetGroupStability(gId).ToString("F2");
+    }
+
+    private string BuildMotorSpeedLine()
+    {
+        if (_manager == null) return "";
+        string line = "";
+        NPCMotor motor = _manager.GetNPCMotor();
+        if (motor != null)
+        {
+            line += "\nSpeed:" + motor.GetCurrentSpeed().ToString("F1") +
+                " mod:" + motor.GetTrustSpeedModifier().ToString("F2");
+        }
+        GestureController gc = _manager.GetGestureController();
+        if (gc != null)
+        {
+            line += " gInt:" + gc.GetGestureIntensity().ToString("F2");
+        }
+        return line;
+    }
+
+    private string BuildSensoryGatingLine()
+    {
+        if (_sensoryGating == null) return "";
+        return "\nGating d:" + _sensoryGating.GetChannelGain(0).ToString("F2") +
+            " v:" + _sensoryGating.GetChannelGain(1).ToString("F2") +
+            " a:" + _sensoryGating.GetChannelGain(2).ToString("F2") +
+            " g:" + _sensoryGating.GetChannelGain(3).ToString("F2") +
+            " b:" + _sensoryGating.GetChannelGain(4).ToString("F2") +
+            (_sensoryGating.IsConverged() ? "" : " ~");
+    }
+
+    private string BuildStageLine()
+    {
+        if (_manager == null) return "";
+        string stages = "\nStages:";
+        for (int s = 1; s <= 7; s++)
+        {
+            if (_manager.IsStageEnabled(s))
+                stages += " " + s.ToString();
             else
-            {
-                _stateBackground.color = GetStateColor(state);
-            }
+                stages += " -";
         }
-
-        // Free energy with trend indicator
-        if (_freeEnergyLabel != null)
-        {
-            string feStr = "F: " + freeEnergy.ToString("F2");
-            if (_freeEnergyCalculator != null)
-            {
-                float trend = _freeEnergyCalculator.GetTrend();
-                if (trend > 0.1f) feStr += " ^";
-                else if (trend < -0.1f) feStr += " v";
-                else feStr += " =";
-
-                feStr += "  Peak: " + _freeEnergyCalculator.GetPeakFreeEnergy().ToString("F1");
-            }
-            _freeEnergyLabel.text = feStr;
-        }
-
-        // Trust — show per-player trust and kindness if BeliefState available
-        if (_trustLabel != null)
-        {
-            float trust = _markovBlanket != null ? _markovBlanket.GetTrust() : 0f;
-            string trustStr = "Trust: " + trust.ToString("F2");
-
-            if (_beliefState != null)
-            {
-                int focusSlot = _manager.GetFocusSlotBelief();
-                if (focusSlot >= 0)
-                {
-                    float slotTrust = _beliefState.GetSlotTrust(focusSlot);
-                    float kindness = _beliefState.GetSlotKindness(focusSlot);
-                    bool isFriend = _beliefState.IsFriend(focusSlot);
-                    trustStr += "  P:" + slotTrust.ToString("F2");
-                    trustStr += "  K:" + kindness.ToString("F1");
-                    if (isFriend) trustStr += " [Friend]";
-                }
-            }
-            _trustLabel.text = trustStr;
-        }
-
-        // Blanket radius
-        if (_radiusLabel != null)
-        {
-            float radius = _markovBlanket != null ? _markovBlanket.GetCurrentRadius() : 0f;
-            _radiusLabel.text = "Radius: " + radius.ToString("F1") + "m";
-        }
-
-        // Details: PE breakdown + belief state + motor info
-        if (_detailsLabel != null)
-        {
-            float peD = _manager.GetPredictionErrorDistance();
-            float peV = _manager.GetPredictionErrorVelocity();
-            float peG = _manager.GetPredictionErrorGaze();
-            int playerCount = _playerSensor != null ? _playerSensor.GetTrackedPlayerCount() : 0;
-            float focusDist = _manager.GetFocusDistance();
-
-            // Motor state label
-            string motorLabel = "Idle";
-            if (_npcMotor != null)
-            {
-                int motorState = _npcMotor.GetMotorState();
-                if (motorState == 1) motorLabel = "WalkTo";
-                else if (motorState == 2) motorLabel = "WalkAway";
-                else if (motorState == 3) motorLabel = "Face";
-            }
-
-            string details =
-                "PE d:" + peD.ToString("F2") +
-                " v:" + peV.ToString("F2") +
-                " g:" + peG.ToString("F2");
-
-            // Add angle and behavior PE if calculator available
-            if (_freeEnergyCalculator != null)
-            {
-                int focusSlot = _manager.GetFocusSlot();
-                if (focusSlot >= 0)
-                {
-                    float peA = _freeEnergyCalculator.GetSlotPE(focusSlot, FreeEnergyCalculator.CH_ANGLE);
-                    float peB = _freeEnergyCalculator.GetSlotPE(focusSlot, FreeEnergyCalculator.CH_BEHAVIOR);
-                    details += " a:" + peA.ToString("F2") + " b:" + peB.ToString("F2");
-                }
-            }
-
-            details += "\nPlayers: " + playerCount.ToString() +
-                "  Dist: " + (focusDist < 999f ? focusDist.ToString("F1") + "m" : "--") +
-                "  Motor: " + motorLabel;
-
-            // Find focus player index in sensor (used by hand/posture/voice)
-            int focusSensorIdx = -1;
-            if (_playerSensor != null && _manager != null)
-            {
-                VRCPlayerApi focusP = _manager.GetFocusPlayer();
-                if (focusP != null && focusP.IsValid())
-                {
-                    int cnt = _playerSensor.GetTrackedPlayerCount();
-                    for (int i = 0; i < cnt; i++)
-                    {
-                        VRCPlayerApi tp = _playerSensor.GetTrackedPlayer(i);
-                        if (tp != null && tp.playerId == focusP.playerId)
-                        {
-                            focusSensorIdx = i;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Hand proximity + crouch line
-            if (_handProximityDetector != null || _postureDetector != null)
-            {
-                string bodyLine = "\n";
-
-                if (focusSensorIdx >= 0)
-                {
-                    if (_handProximityDetector != null)
-                    {
-                        float handDist = _handProximityDetector.GetClosestHandDistance(focusSensorIdx);
-                        bool reaching = _handProximityDetector.IsReachingOut(focusSensorIdx);
-                        bodyLine += "Hand:" + (handDist < 999f ? handDist.ToString("F1") + "m" : "--");
-                        if (reaching) bodyLine += " [Reach]";
-                    }
-                    if (_postureDetector != null)
-                    {
-                        float ratio = _postureDetector.GetHeadHeightRatio(focusSensorIdx);
-                        bool crouching = _postureDetector.IsCrouching(focusSensorIdx);
-                        bodyLine += "  Posture:" + ratio.ToString("F2");
-                        if (crouching) bodyLine += " [Crouch]";
-                    }
-                }
-                else
-                {
-                    bodyLine += "Hand:--  Posture:--";
-                }
-
-                details += bodyLine;
-            }
-
-            // Belief state line
-            if (_beliefState != null)
-            {
-                int focusSlot = _manager.GetFocusSlotBelief();
-                if (focusSlot >= 0)
-                {
-                    int dominant = _beliefState.GetDominantIntent(focusSlot);
-                    string intentName = _beliefState.GetIntentName(dominant);
-                    float pA = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_APPROACH);
-                    float pN = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_NEUTRAL);
-                    float pT = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_THREAT);
-                    float pF = _beliefState.GetPosterior(focusSlot, BeliefState.INTENT_FRIENDLY);
-
-                    details += "\nBelief: " + intentName +
-                        " [A:" + pA.ToString("F2") +
-                        " N:" + pN.ToString("F2") +
-                        " T:" + pT.ToString("F2") +
-                        " F:" + pF.ToString("F2") + "]";
-                }
-            }
-
-            // Utterance line
-            if (_npc != null)
-            {
-                string utt = _npc.GetCurrentUtterance();
-                if (utt.Length > 0)
-                {
-                    details += "\n\"" + utt + "\"";
-                }
-            }
-
-            // Session memory line
-            if (_sessionMemory != null)
-            {
-                string memLine = "\nMem:" + _sessionMemory.GetMemoryCount().ToString() +
-                    " Friends:" + _sessionMemory.GetFriendCount().ToString();
-
-                // Show memory for focus player
-                VRCPlayerApi fp = _manager.GetFocusPlayer();
-                if (fp != null && fp.IsValid())
-                {
-                    string memDebug = _sessionMemory.GetMemoryDebugString(fp.playerId);
-                    if (memDebug.Length > 0)
-                    {
-                        memLine += " | " + memDebug;
-                    }
-                }
-                details += memLine;
-            }
-
-            // Gaze line
-            if (_lookAtController != null)
-            {
-                string gazeLine = "\nGaze:" + _lookAtController.GetGazeWeight().ToString("F2");
-                if (_lookAtController.IsGlancingBack())
-                {
-                    gazeLine += " [Glance]";
-                }
-                details += gazeLine;
-            }
-
-            // Touch line
-            if (_touchSensor != null)
-            {
-                string touchLine = "\nTouch:";
-                if (_touchSensor.IsTouched())
-                {
-                    touchLine += _touchSensor.GetActiveTouchCount().ToString();
-                    int lastZone = _touchSensor.GetLastTouchZone();
-                    touchLine += " [" + _touchSensor.GetZoneName(lastZone) + "]";
-                    touchLine += " sig:" + _touchSensor.GetTouchSignal().ToString("F2");
-
-                    // Show contact duration for focus player
-                    VRCPlayerApi fp = _manager.GetFocusPlayer();
-                    if (fp != null && fp.IsValid())
-                    {
-                        float dur = _touchSensor.GetPlayerContactDuration(fp.playerId);
-                        if (dur > 0f) touchLine += " " + dur.ToString("F1") + "s";
-                    }
-                }
-                else
-                {
-                    touchLine += "-- sig:" + _touchSensor.GetTouchSignal().ToString("F2");
-                }
-                details += touchLine;
-            }
-
-            // Gift line
-            if (_giftReceiver != null)
-            {
-                int totalGifts = _giftReceiver.GetTotalGiftCount();
-                string giftLine = "\nGifts:" + totalGifts.ToString();
-                giftLine += " sig:" + _giftReceiver.GetGiftSignal().ToString("F2");
-                if (_giftReceiver.GetTimeSinceLastGift() < 5f)
-                {
-                    giftLine += " [New!]";
-                }
-                details += giftLine;
-            }
-
-            // Dream state line
-            if (_dreamState != null)
-            {
-                string dreamLine = "\nDream:" + _dreamState.GetPhaseName();
-                if (_dreamState.IsDreaming())
-                {
-                    dreamLine += " " + _dreamState.GetDreamDuration().ToString("F0") + "s";
-                }
-                else if (_dreamState.IsWaking())
-                {
-                    dreamLine += " wake:" + (_dreamState.GetWakeProgress() * 100f).ToString("F0") + "%";
-                }
-                details += dreamLine;
-            }
-
-            // Mirror behavior line
-            if (_mirrorBehavior != null)
-            {
-                string mirrorLine = "\nMirror:";
-                if (_mirrorBehavior.IsActive())
-                {
-                    mirrorLine += "ON drop:" + _mirrorBehavior.GetCrouchDrop().ToString("F2") +
-                        "m lean:" + _mirrorBehavior.GetLeanAngle().ToString("F1") + "°";
-                }
-                else
-                {
-                    mirrorLine += "OFF";
-                }
-                details += mirrorLine;
-            }
-
-            // Contextual utterance line
-            if (_contextualUtterance != null)
-            {
-                int lastSit = _contextualUtterance.GetLastSituation();
-                if (lastSit != ContextualUtterance.SIT_NONE)
-                {
-                    details += "\nContext:" + _contextualUtterance.GetSituationName(lastSit);
-                }
-            }
-
-            // Proximity audio line
-            if (_proximityAudio != null)
-            {
-                details += "\nAudio vol:" + _proximityAudio.GetCurrentVolume().ToString("F2") +
-                    " pitch:" + _proximityAudio.GetCurrentPitch().ToString("F2");
-            }
-
-            // Voice/engagement line
-            if (_voiceDetector != null)
-            {
-                float maxVoice = _voiceDetector.GetMaxVoiceSignal();
-                string voiceLine = "\nVoice:" + maxVoice.ToString("F2");
-                if (focusSensorIdx >= 0)
-                {
-                    float focusVoice = _voiceDetector.GetVoiceSignal(focusSensorIdx);
-                    voiceLine += " focus:" + focusVoice.ToString("F2");
-                }
-                details += voiceLine;
-            }
-
-            // Dream narrative line
-            if (_dreamNarrative != null)
-            {
-                int tone = _dreamNarrative.GetLastTone();
-                if (tone != DreamNarrative.TONE_NONE)
-                {
-                    details += "\nDreamNarr:" + _dreamNarrative.GetToneName(tone);
-                    string narrText = _dreamNarrative.GetLastNarrativeText();
-                    if (narrText.Length > 0)
-                    {
-                        details += " \"" + narrText + "\"";
-                    }
-                }
-            }
-
-            // Idle waypoints line
-            if (_idleWaypoints != null)
-            {
-                details += "\nPatrol:" + _idleWaypoints.GetPatrolStateName();
-                if (_idleWaypoints.IsActive())
-                {
-                    details += " wp:" + _idleWaypoints.GetCurrentWaypointIndex().ToString() +
-                        "/" + _idleWaypoints.GetWaypointCount().ToString();
-                }
-            }
-
-            // Trust visualizer line
-            if (_trustVisualizer != null)
-            {
-                details += "\nTrustViz em:" + _trustVisualizer.GetEmissionIntensity().ToString("F2");
-            }
-
-            // Adaptive personality line
-            if (_adaptivePersonality != null)
-            {
-                details += "\nPersonality S:" + _adaptivePersonality.GetSociability().ToString("F2") +
-                    " C:" + _adaptivePersonality.GetCautiousness().ToString("F2") +
-                    " E:" + _adaptivePersonality.GetExpressiveness().ToString("F2");
-            }
-
-            // Curiosity drive line
-            if (_curiosityDrive != null)
-            {
-                details += "\nCuriosity:" + _curiosityDrive.GetAggregateCuriosity().ToString("F2") +
-                    " focus:" + _curiosityDrive.GetFocusCuriosity().ToString("F2") +
-                    " bias:" + _curiosityDrive.GetCuriosityBias().ToString("F2") +
-                    " tracked:" + _curiosityDrive.GetTrackedSlotCount().ToString();
-            }
-
-            // Gesture controller line
-            if (_gestureController != null)
-            {
-                details += "\nGesture:" + _gestureController.GetLastGestureName();
-                if (_gestureController.IsInCooldown())
-                {
-                    details += " [CD]";
-                }
-            }
-
-            // Group dynamics line
-            if (_groupDynamics != null)
-            {
-                int groups = _groupDynamics.GetActiveGroupCount();
-                details += "\nGroups:" + groups.ToString();
-                int focusSlotG = _manager.GetFocusSlotBelief();
-                if (focusSlotG >= 0)
-                {
-                    int gId = _groupDynamics.GetGroupId(focusSlotG);
-                    if (gId != GroupDynamics.GROUP_NONE)
-                    {
-                        details += " g:" + gId.ToString() +
-                            " gT:" + _groupDynamics.GetGroupTrust(gId).ToString("F2") +
-                            " sz:" + _groupDynamics.GetGroupSize(gId).ToString();
-                    }
-                    float fof = _groupDynamics.GetFriendOfFriendBonus(focusSlotG);
-                    if (fof > 0.001f) details += " FoF:" + fof.ToString("F2");
-                }
-            }
-
-            // Emotional contagion line
-            if (_emotionalContagion != null)
-            {
-                details += "\nCrowd:" + _emotionalContagion.GetCrowdSize().ToString() +
-                    " mood:" + _emotionalContagion.GetCrowdMood().ToString("F2") +
-                    " anx:" + _emotionalContagion.GetCrowdAnxiety().ToString("F2") +
-                    " warm:" + _emotionalContagion.GetCrowdWarmth().ToString("F2");
-            }
-
-            // Attention system line
-            if (_attentionSystem != null)
-            {
-                int attnFocus = _attentionSystem.GetFocusSlot();
-                details += "\nAttn focus:" + attnFocus.ToString() +
-                    " slots:" + _attentionSystem.GetAttendedSlotCount().ToString() +
-                    " budget:" + _attentionSystem.GetAttentionBudgetRemaining().ToString("F2");
-                int focusSlotA = _manager.GetFocusSlotBelief();
-                if (focusSlotA >= 0)
-                {
-                    details += " lv:" + _attentionSystem.GetAttention(focusSlotA).ToString("F2") +
-                        " px:" + _attentionSystem.GetPrecisionMultiplier(focusSlotA).ToString("F2");
-                }
-            }
-
-            // Habit formation line
-            if (_habitFormation != null)
-            {
-                details += "\nHabits:" + _habitFormation.GetHabitSlotCount().ToString() +
-                    " lonely:" + _habitFormation.GetLonelinessSignal().ToString("F2") +
-                    " absent:" + _habitFormation.GetExpectedAbsentCount().ToString();
-            }
-
-            // Multi-NPC relay line
-            if (_multiNPCRelay != null)
-            {
-                details += "\nRelay peers:" + _multiNPCRelay.GetPeerCount().ToString() +
-                    " entries:" + _multiNPCRelay.GetRelayCount().ToString();
-            }
-
-            // Shared ritual line
-            if (_sharedRitual != null)
-            {
-                details += "\nRitual:" + _sharedRitual.GetActiveRitualCount().ToString() + " active";
-                if (_sharedRitual.IsRitualActive()) details += " [ACTIVE]";
-            }
-
-            // Collective memory line
-            if (_collectiveMemory != null)
-            {
-                details += "\nCollective:" + _collectiveMemory.GetCollectiveCount().ToString() +
-                    " avgT:" + _collectiveMemory.GetVillageAverageTrust().ToString("F2");
-            }
-
-            // Gift economy line
-            if (_giftEconomy != null)
-            {
-                details += "\nGiftChains:" + _giftEconomy.GetActiveChainCount().ToString();
-            }
-
-            // Norm formation line
-            if (_normFormation != null)
-            {
-                details += "\nNorms:" + _normFormation.GetActiveZoneCount().ToString() + " zones";
-                if (_normFormation.HasNormViolation())
-                {
-                    int vz = _normFormation.GetViolationZone();
-                    details += " [Violation z:" + vz.ToString() + "]";
-                }
-            }
-
-            // Oral history line
-            if (_oralHistory != null)
-            {
-                details += "\nStories:" + _oralHistory.GetStoryCount().ToString();
-                if (_oralHistory.HasStoryToTell()) details += " [Ready]";
-                string lastStory = _oralHistory.GetLastStoryText();
-                if (lastStory.Length > 0) details += " \"" + lastStory + "\"";
-            }
-
-            // Name giving line
-            if (_nameGiving != null)
-            {
-                details += "\nNamed:" + _nameGiving.GetNamedCount().ToString();
-                VRCPlayerApi fpN = _manager.GetFocusPlayer();
-                if (fpN != null && fpN.IsValid() && _nameGiving.HasNickname(fpN.playerId))
-                {
-                    details += " [" + _nameGiving.GetNickname(fpN.playerId) + "]";
-                }
-            }
-
-            // Mythology line
-            if (_mythology != null)
-            {
-                details += "\nLegends:" + _mythology.GetLegendCount().ToString();
-                if (_mythology.HasLegendToTell()) details += " [Ready]";
-                VRCPlayerApi fpM = _manager.GetFocusPlayer();
-                if (fpM != null && fpM.IsValid() && _mythology.IsLegend(fpM.playerId))
-                {
-                    details += " [LEGEND: " + _mythology.GetLegendTitle(fpM.playerId) + "]";
-                }
-            }
-
-            // Companion memory line
-            if (_companionMemory != null)
-            {
-                details += "\nCompanions:" + _companionMemory.GetCompanionCount().ToString() +
-                    " pairs:" + _companionMemory.GetPairCount().ToString();
-                if (_companionMemory.HasMissingCompanion())
-                {
-                    details += " [Missing!]";
-                }
-                VRCPlayerApi fpC = _manager.GetFocusPlayer();
-                if (fpC != null && fpC.IsValid())
-                {
-                    int comp = _companionMemory.GetStrongestCompanion(fpC.playerId);
-                    if (comp >= 0)
-                    {
-                        details += " buddy:" + comp.ToString() +
-                            " str:" + _companionMemory.GetCompanionStrength(fpC.playerId).ToString();
-                    }
-                }
-            }
-
-            // Farewell behavior line
-            if (_farewellBehavior != null)
-            {
-                if (_farewellBehavior.IsActive())
-                {
-                    details += "\nFarewell:" +
-                        _farewellBehavior.GetFarewellTypeName(_farewellBehavior.GetActiveFarewellType()) +
-                        " \"" + _farewellBehavior.GetLastFarewellText() + "\"";
-                }
-            }
-
-            // Vocabulary, peak emotion, and belief confidence
-            if (_npc != null)
-            {
-                details += "\nVocab:" + _npc.GetVocabularySize().ToString() +
-                    " peak:" + _npc.GetPeakEmotionIntensity().ToString("F2");
-            }
-            // Belief confidence for focus slot
-            if (_manager != null && _manager.GetBeliefState() != null)
-            {
-                int fSlot = _manager.GetFocusSlotBelief();
-                if (fSlot >= 0)
-                {
-                    BeliefState bs = _manager.GetBeliefState();
-                    details += " conf:" + bs.GetBeliefConfidence(fSlot).ToString("F2") +
-                        " H:" + bs.GetPosteriorEntropy(fSlot).ToString("F2");
-                }
-            }
-            // Group role and stability
-            if (_manager != null)
-            {
-                GroupDynamics gd = _manager.GetGroupDynamics();
-                if (gd != null)
-                {
-                    int fSlotG = _manager.GetFocusSlotBelief();
-                    if (fSlotG >= 0)
-                    {
-                        int role = gd.GetGroupRole(fSlotG);
-                        if (role > 0)
-                        {
-                            int gId = gd.GetGroupId(fSlotG);
-                            details += "\nGroup:" + gId.ToString() +
-                                " role:" + gd.GetGroupRoleName(role) +
-                                " stab:" + gd.GetGroupStability(gId).ToString("F2");
-                        }
-                    }
-                }
-            }
-            // Motor speed and gesture intensity
-            if (_manager != null)
-            {
-                NPCMotor motor = _manager.GetNPCMotor();
-                if (motor != null)
-                {
-                    details += "\nSpeed:" + motor.GetCurrentSpeed().ToString("F1") +
-                        " mod:" + motor.GetTrustSpeedModifier().ToString("F2");
-                }
-                GestureController gc = _manager.GetGestureController();
-                if (gc != null)
-                {
-                    details += " gInt:" + gc.GetGestureIntensity().ToString("F2");
-                }
-            }
-
-            // Stage toggles line
-            if (_manager != null)
-            {
-                string stages = "\nStages:";
-                for (int s = 1; s <= 7; s++)
-                {
-                    if (_manager.IsStageEnabled(s))
-                        stages += " " + s.ToString();
-                    else
-                        stages += " -";
-                }
-                details += stages;
-            }
-
-            _detailsLabel.text = details;
-        }
+        return stages;
     }
 
     // ================================================================

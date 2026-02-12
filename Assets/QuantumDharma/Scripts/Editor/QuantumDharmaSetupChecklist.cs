@@ -49,6 +49,7 @@ public class QuantumDharmaSetupChecklist : EditorWindow
         "NameGiving", "Mythology", "CompanionMemory",
         "FarewellBehavior", "PersonalityPreset", "PersonalityInstaller",
         "AutonomousGoals", "EnvironmentAwareness", "ImitationLearning",
+        "SensoryGating",
         // Perception (7)
         "PlayerSensor", "MarkovBlanket", "HandProximityDetector",
         "PostureDetector", "TouchSensor", "GiftReceiver", "VoiceDetector",
